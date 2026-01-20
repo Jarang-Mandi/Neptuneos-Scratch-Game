@@ -1,14 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain, useChainId } from 'wagmi'
-import { parseAbi } from 'viem'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain, useChainId, useReadContract } from 'wagmi'
+import { parseAbi, formatUnits } from 'viem'
 import { base } from 'wagmi/chains'
 import { USDC_ADDRESS, DONATION_AMOUNT, DONATION_CONTRACT_ADDRESS } from '@/lib/wagmi'
 
-// ERC20 ABI for approve
+// ERC20 ABI for approve and balance
 const erc20Abi = parseAbi([
     'function approve(address spender, uint256 amount) returns (bool)',
+    'function balanceOf(address account) view returns (uint256)',
+    'function allowance(address owner, address spender) view returns (uint256)',
 ])
 
 // Contract ABI for donate function
@@ -27,8 +29,27 @@ export default function DonateButton({ isSupporter, onDonateSuccess }: DonateBut
     const chainId = useChainId()
     const { switchChain } = useSwitchChain()
     const [step, setStep] = useState<'idle' | 'switching' | 'approving' | 'donating'>('idle')
+    const [error, setError] = useState<string>('')
 
-    const { writeContract, data: hash, isPending, isSuccess, isError } = useWriteContract()
+    // Read USDC balance
+    const { data: usdcBalance } = useReadContract({
+        address: USDC_ADDRESS,
+        abi: erc20Abi,
+        functionName: 'balanceOf',
+        args: address ? [address] : undefined,
+        query: { enabled: !!address && chainId === base.id }
+    })
+
+    // Read current allowance
+    const { data: allowance } = useReadContract({
+        address: USDC_ADDRESS,
+        abi: erc20Abi,
+        functionName: 'allowance',
+        args: address ? [address, DONATION_CONTRACT_ADDRESS] : undefined,
+        query: { enabled: !!address && chainId === base.id }
+    })
+
+    const { writeContract, data: hash, isPending, isSuccess, isError, error: writeError } = useWriteContract()
 
     const { isLoading: isConfirming, isSuccess: txSuccess } = useWaitForTransactionReceipt({
         hash,
@@ -47,6 +68,7 @@ export default function DonateButton({ isSupporter, onDonateSuccess }: DonateBut
         } else if (txSuccess && step === 'donating') {
             // Donation complete
             setStep('idle')
+            setError('')
             onDonateSuccess?.()
         }
     }, [txSuccess, step])
@@ -55,17 +77,33 @@ export default function DonateButton({ isSupporter, onDonateSuccess }: DonateBut
     useEffect(() => {
         if (isError) {
             setStep('idle')
+            if (writeError?.message?.includes('User rejected')) {
+                setError('Transaction cancelled by user')
+            } else if (writeError?.message?.includes('insufficient')) {
+                setError('Insufficient USDC balance')
+            } else {
+                setError('Transaction failed. Please try again.')
+            }
         }
-    }, [isError])
+    }, [isError, writeError])
 
     const handleDonate = async () => {
+        setError('')
+
         if (!isConnected) {
-            alert('Please connect your wallet first!')
+            setError('Please connect your wallet first!')
             return
         }
 
         if (DONATION_CONTRACT_ADDRESS === '0x0000000000000000000000000000000000000000') {
-            alert('Contract not deployed yet. Please deploy smart contract first.')
+            setError('Contract not deployed yet.')
+            return
+        }
+
+        // Check USDC balance
+        if (usdcBalance !== undefined && usdcBalance < DONATION_AMOUNT) {
+            const balance = formatUnits(usdcBalance, 6)
+            setError(`Insufficient USDC. You have $${balance}, need $1.00`)
             return
         }
 
@@ -74,21 +112,32 @@ export default function DonateButton({ isSupporter, onDonateSuccess }: DonateBut
             if (chainId !== base.id) {
                 setStep('switching')
                 await switchChain({ chainId: base.id })
-                // Wait a bit for chain switch
                 await new Promise(resolve => setTimeout(resolve, 1000))
             }
 
-            // Step 1: Approve USDC spending
-            setStep('approving')
-            writeContract({
-                address: USDC_ADDRESS,
-                abi: erc20Abi,
-                functionName: 'approve',
-                args: [DONATION_CONTRACT_ADDRESS, DONATION_AMOUNT],
-            })
-        } catch (error) {
-            console.error('Donation failed:', error)
+            // Check if already approved enough
+            if (allowance !== undefined && allowance >= DONATION_AMOUNT) {
+                // Already approved, go straight to donate
+                setStep('donating')
+                writeContract({
+                    address: DONATION_CONTRACT_ADDRESS,
+                    abi: donationAbi,
+                    functionName: 'donate',
+                })
+            } else {
+                // Step 1: Approve USDC spending
+                setStep('approving')
+                writeContract({
+                    address: USDC_ADDRESS,
+                    abi: erc20Abi,
+                    functionName: 'approve',
+                    args: [DONATION_CONTRACT_ADDRESS, DONATION_AMOUNT],
+                })
+            }
+        } catch (err) {
+            console.error('Donation failed:', err)
             setStep('idle')
+            setError('Transaction failed. Please try again.')
         }
     }
 
@@ -113,8 +162,24 @@ export default function DonateButton({ isSupporter, onDonateSuccess }: DonateBut
     // Show wrong network warning
     const isWrongNetwork = chainId !== base.id
 
+    // Format USDC balance for display
+    const balanceDisplay = usdcBalance !== undefined
+        ? `$${formatUnits(usdcBalance, 6)}`
+        : 'Loading...'
+
     return (
         <div className="wallet-section">
+            {/* Network and balance info */}
+            {!isWrongNetwork && (
+                <div style={{
+                    fontSize: '12px',
+                    color: '#58d8ff',
+                    marginBottom: '8px',
+                }}>
+                    💵 USDC Balance: {balanceDisplay}
+                </div>
+            )}
+
             {isWrongNetwork && (
                 <div style={{
                     fontSize: '12px',
@@ -127,6 +192,21 @@ export default function DonateButton({ isSupporter, onDonateSuccess }: DonateBut
                     ⚠️ Switch to Base network for donation
                 </div>
             )}
+
+            {/* Error message */}
+            {error && (
+                <div style={{
+                    fontSize: '12px',
+                    color: '#ff6b6b',
+                    marginBottom: '8px',
+                    padding: '8px',
+                    background: 'rgba(255, 107, 107, 0.1)',
+                    borderRadius: '6px',
+                }}>
+                    ❌ {error}
+                </div>
+            )}
+
             <button
                 className="donate-btn"
                 onClick={handleDonate}
