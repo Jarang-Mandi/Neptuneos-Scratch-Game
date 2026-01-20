@@ -65,33 +65,76 @@ export default function Home() {
             <Navbar />
 
             <main>
-                {/* Donation Button */}
-                {isConnected && (
-                    <DonateButton
-                        isSupporter={isSupporter}
-                        onDonateSuccess={handleDonateSuccess}
-                    />
-                )}
-
-                {/* Game Stats */}
-                {isConnected && (stats.wins > 0 || stats.losses > 0) && (
+                {/* Wallet Connection Required Notice */}
+                {!isConnected && (
                     <div style={{
                         textAlign: 'center',
-                        marginBottom: '10px',
-                        fontSize: '14px',
-                        color: '#aaa'
+                        padding: '30px 20px',
+                        marginBottom: '20px',
+                        background: 'rgba(88, 216, 255, 0.1)',
+                        borderRadius: '12px',
+                        border: '2px solid rgba(88, 216, 255, 0.3)',
                     }}>
-                        🎮 Session: {stats.wins}W / {stats.losses}L | 🏆 {stats.points} pts
+                        <h2 style={{ color: '#58d8ff', marginBottom: '10px' }}>🔐 Wallet Required</h2>
+                        <p style={{ color: '#aaa', marginBottom: '15px' }}>
+                            Connect your wallet to play and track your score on the leaderboard
+                        </p>
+                        <p style={{ fontSize: '12px', color: '#666' }}>
+                            Click "Connect Wallet" in the navbar above ☝️
+                        </p>
                     </div>
                 )}
 
-                {/* Main Game */}
-                <ScratchGame
-                    onWin={handleWin}
-                    onLose={handleLose}
-                />
+                {/* Connected User Section */}
+                {isConnected && (
+                    <>
+                        {/* Donation Section */}
+                        <div style={{
+                            textAlign: 'center',
+                            marginBottom: '15px',
+                            padding: '15px',
+                            background: 'rgba(0, 0, 0, 0.2)',
+                            borderRadius: '8px',
+                        }}>
+                            <DonateButton
+                                isSupporter={isSupporter}
+                                onDonateSuccess={handleDonateSuccess}
+                            />
+                        </div>
 
-                {/* Leaderboard Button */}
+                        {/* Game Stats */}
+                        {(stats.wins > 0 || stats.losses > 0) && (
+                            <div style={{
+                                textAlign: 'center',
+                                marginBottom: '10px',
+                                fontSize: '14px',
+                                color: '#aaa'
+                            }}>
+                                🎮 Session: {stats.wins}W / {stats.losses}L | 🏆 {stats.points} pts
+                            </div>
+                        )}
+                    </>
+                )}
+
+                {/* Main Game - Only show if wallet connected */}
+                {isConnected ? (
+                    <ScratchGame
+                        onWin={handleWin}
+                        onLose={handleLose}
+                    />
+                ) : (
+                    <div style={{
+                        textAlign: 'center',
+                        padding: '50px 20px',
+                        opacity: 0.3,
+                        pointerEvents: 'none',
+                    }}>
+                        <h1>Scratch Game</h1>
+                        <p style={{ color: '#666' }}>Game locked - connect wallet to play</p>
+                    </div>
+                )}
+
+                {/* Leaderboard Button - Always visible */}
                 <div style={{ textAlign: 'center', marginTop: '15px' }}>
                     <Leaderboard />
                 </div>
