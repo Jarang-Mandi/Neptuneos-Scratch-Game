@@ -18,7 +18,7 @@ export default function RootLayout({
     children: React.ReactNode
 }) {
     return (
-        <html lang="id">
+        <html lang="id" suppressHydrationWarning>
             <head>
                 <meta name="fc:frame" content="vNext" />
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
