@@ -1,0 +1,18 @@
+{
+    "accountAssociation": {
+        "header": "eyJmaWQiOjAsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIn0",
+        "payload": "eyJkb21haW4iOiJ5b3VyLWRvbWFpbi5jb20ifQ",
+        "signature": "MHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw"
+    },
+    "frame": {
+        "version": "1",
+        "name": "Scratch Game",
+        "iconUrl": "https://your-domain.com/icon.png",
+        "homeUrl": "https://your-domain.com",
+        "imageUrl": "https://your-domain.com/og-image.png",
+        "buttonTitle": "Play Now",
+        "splashImageUrl": "https://your-domain.com/splash.png",
+        "splashBackgroundColor": "#0f2027",
+        "webhookUrl": "https://your-domain.com/api/webhook"
+    }
+}
