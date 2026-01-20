@@ -8,11 +8,27 @@ const LEVEL_POINTS: Record<string, number> = {
     hard: 3
 }
 
-// Initialize Redis client with environment variables
-// Vercel auto-adds these when you connect Upstash
+// Initialize Redis client
+// Try multiple possible env var names (Vercel/Upstash naming varies)
+const getRedisUrl = () => {
+    return process.env.STORAGE_REST_API_URL ||
+        process.env.STORAGE_URL ||
+        process.env.KV_REST_API_URL ||
+        process.env.UPSTASH_REDIS_REST_URL ||
+        ''
+}
+
+const getRedisToken = () => {
+    return process.env.STORAGE_REST_API_TOKEN ||
+        process.env.STORAGE_TOKEN ||
+        process.env.KV_REST_API_TOKEN ||
+        process.env.UPSTASH_REDIS_REST_TOKEN ||
+        ''
+}
+
 const redis = new Redis({
-    url: process.env.STORAGE_REST_API_URL || '',
-    token: process.env.STORAGE_REST_API_TOKEN || '',
+    url: getRedisUrl(),
+    token: getRedisToken(),
 })
 
 interface PlayerStats {
@@ -25,6 +41,16 @@ interface PlayerStats {
 
 export async function GET() {
     try {
+        // Check if Redis is configured
+        if (!getRedisUrl() || !getRedisToken()) {
+            console.error('Redis not configured - missing env vars')
+            return NextResponse.json({
+                entries: [],
+                total: 0,
+                error: 'Database not configured'
+            })
+        }
+
         // Get all player keys from Redis
         const keys = await redis.keys('player:*')
 
@@ -76,13 +102,22 @@ export async function GET() {
         })
     } catch (error) {
         console.error('Leaderboard GET error:', error)
-        return NextResponse.json({ error: 'Failed to fetch leaderboard' }, { status: 500 })
+        return NextResponse.json({
+            entries: [],
+            total: 0,
+            error: 'Failed to fetch leaderboard'
+        }, { status: 500 })
     }
 }
 
 // Record a win
 export async function POST(request: NextRequest) {
     try {
+        // Check if Redis is configured
+        if (!getRedisUrl() || !getRedisToken()) {
+            return NextResponse.json({ error: 'Database not configured' }, { status: 500 })
+        }
+
         const body = await request.json()
         const { wallet, level, isSupporter = false } = body
 
