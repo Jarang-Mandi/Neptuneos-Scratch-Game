@@ -1,9 +1,7 @@
 import { base } from 'wagmi/chains'
 import { http, createConfig } from 'wagmi'
-import { injected, walletConnect, coinbaseWallet } from 'wagmi/connectors'
-
-// WalletConnect Project ID (optional - get from https://cloud.walletconnect.com/)
-const projectId = 'YOUR_PROJECT_ID' // TODO: Replace with actual project ID or remove walletConnect
+import { injected } from 'wagmi/connectors'
+import { farcasterMiniApp } from '@farcaster/miniapp-wagmi-connector'
 
 export const config = createConfig({
     chains: [base],
@@ -11,9 +9,8 @@ export const config = createConfig({
         [base.id]: http(),
     },
     connectors: [
-        injected({ target: 'metaMask' }), // MetaMask
-        coinbaseWallet({ appName: 'Scratch Game' }), // Coinbase Wallet
-        // walletConnect({ projectId }), // WalletConnect (optional - requires project ID)
+        farcasterMiniApp(), // Priority: Farcaster auto-connect
+        injected({ target: 'metaMask' }), // Fallback: MetaMask for browser testing
     ],
 })
 

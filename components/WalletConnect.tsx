@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAccount, useConnect, useDisconnect } from 'wagmi'
 
 export default function WalletConnect() {
@@ -9,27 +9,35 @@ export default function WalletConnect() {
     const { disconnect } = useDisconnect()
     const [showModal, setShowModal] = useState(false)
 
+    // Auto-connect Farcaster on mount
+    useEffect(() => {
+        if (!isConnected && connectors.length > 0) {
+            const farcasterConnector = connectors.find(c =>
+                String(c).toLowerCase().includes('farcaster')
+            )
+            if (farcasterConnector) {
+                // Auto-connect Farcaster silently
+                connect({ connector: farcasterConnector })
+            }
+        }
+    }, [connectors, isConnected, connect])
+
     const handleConnect = (connector: any) => {
         connect({ connector })
         setShowModal(false)
     }
 
-    // Get wallet info with proper icons
+    // Get wallet info based on connector
     const getWalletInfo = (connector: any, index: number) => {
-        // Try to get name from connector properties
-        const connectorString = String(connector)
-        const lowerStr = connectorString.toLowerCase()
+        const connectorStr = String(connector).toLowerCase()
 
-        if (lowerStr.includes('metamask')) {
+        if (connectorStr.includes('farcaster')) {
+            return { name: 'Farcaster', icon: '🟣', color: '#8a63d2' }
+        }
+        if (connectorStr.includes('metamask')) {
             return { name: 'MetaMask', icon: '🦊', color: '#f6851b' }
         }
-        if (lowerStr.includes('coinbase')) {
-            return { name: 'Coinbase Wallet', icon: '🔵', color: '#0052ff' }
-        }
-        if (lowerStr.includes('walletconnect')) {
-            return { name: 'WalletConnect', icon: '🌐', color: '#3396ff' }
-        }
-        if (lowerStr.includes('injected')) {
+        if (connectorStr.includes('injected')) {
             return { name: 'Browser Wallet', icon: '🌐', color: '#666' }
         }
 
@@ -155,7 +163,9 @@ export default function WalletConnect() {
                             textAlign: 'center',
                             lineHeight: '1.5'
                         }}>
-                            Connect your wallet to play and track your scores on the leaderboard
+                            {connectors.length > 0 && String(connectors[0]).toLowerCase().includes('farcaster')
+                                ? '🟣 Farcaster users will auto-connect'
+                                : 'Connect your wallet to play'}
                         </p>
                     </div>
                 </div>
