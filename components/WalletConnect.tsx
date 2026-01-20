@@ -27,16 +27,15 @@ export default function WalletConnect() {
         setShowModal(false)
     }
 
-    // Simplified: Just use index-based naming since we know the order from wagmi config
-    // wagmi config order: [farcasterMiniApp(), injected({ target: 'metaMask' })]
+    // Wallet info mapping - order matches wagmi config
+    // [farcasterMiniApp, metaMask, okxwallet]
     const getWalletInfo = (index: number) => {
-        if (index === 0) {
-            return { name: 'Farcaster', icon: '🟣', color: '#8a63d2' }
-        }
-        if (index === 1) {
-            return { name: 'MetaMask', icon: '🦊', color: '#f6851b' }
-        }
-        return { name: 'Browser Wallet', icon: '🌐', color: '#666' }
+        const wallets = [
+            { name: 'Farcaster', icon: '🟣', color: '#8a63d2' },
+            { name: 'MetaMask', icon: '🦊', color: '#f6851b' },
+            { name: 'OKX Wallet', icon: '⚫', color: '#000000' },
+        ]
+        return wallets[index] || { name: 'Browser Wallet', icon: '🌐', color: '#666' }
     }
 
     // Get network name
@@ -143,7 +142,7 @@ export default function WalletConnect() {
                         </h2>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {connectors.slice(0, 2).map((connector, index) => {
+                            {connectors.slice(0, 3).map((connector, index) => {
                                 const { name, icon, color } = getWalletInfo(index)
 
                                 return (
@@ -206,7 +205,7 @@ export default function WalletConnect() {
                             textAlign: 'center',
                             lineHeight: '1.5'
                         }}>
-                            🟣 Farcaster users auto-connect | 🦊 MetaMask for testing
+                            🟣 Farcaster | 🦊 MetaMask | ⚫ OKX Wallet
                         </p>
                     </div>
                 </div>

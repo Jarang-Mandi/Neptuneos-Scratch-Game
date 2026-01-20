@@ -10,7 +10,17 @@ export const config = createConfig({
     },
     connectors: [
         farcasterMiniApp(), // Priority: Farcaster auto-connect
-        injected({ target: 'metaMask' }), // Fallback: MetaMask for browser testing
+        injected({ target: 'metaMask' }), // MetaMask
+        injected({
+            target: {
+                id: 'okxwallet',
+                name: 'OKX Wallet',
+                provider: (window) => {
+                    // @ts-ignore
+                    return window?.okxwallet
+                }
+            }
+        }), // OKX Wallet
     ],
 })
 
