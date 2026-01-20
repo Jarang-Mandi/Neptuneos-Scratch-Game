@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAccount, useConnect, useDisconnect } from 'wagmi'
+import { useAccount, useConnect, useDisconnect, useChainId } from 'wagmi'
+import { base } from 'wagmi/chains'
 
 export default function WalletConnect() {
     const { isConnected, address } = useAccount()
+    const chainId = useChainId()
     const { connect, connectors, isPending } = useConnect()
     const { disconnect } = useDisconnect()
     const [showModal, setShowModal] = useState(false)
@@ -37,18 +39,66 @@ export default function WalletConnect() {
         return { name: 'Browser Wallet', icon: '🌐', color: '#666' }
     }
 
+    // Get network name
+    const getNetworkName = () => {
+        if (chainId === base.id) return 'Base'
+        if (chainId === 1) return 'Ethereum'
+        return `Chain ${chainId}`
+    }
+
     if (isConnected) {
         return (
-            <div className="wallet-section">
-                <div className="wallet-address" style={{ fontSize: '14px', marginBottom: '8px' }}>
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                background: 'rgba(0, 0, 0, 0.3)',
+                padding: '8px 16px',
+                borderRadius: '12px',
+                border: '1px solid rgba(88, 216, 255, 0.2)',
+            }}>
+                {/* Network indicator */}
+                <div style={{
+                    fontSize: '11px',
+                    padding: '4px 8px',
+                    background: chainId === base.id ? 'rgba(0, 82, 255, 0.2)' : 'rgba(255, 107, 107, 0.2)',
+                    color: chainId === base.id ? '#58d8ff' : '#ff6b6b',
+                    borderRadius: '6px',
+                    fontWeight: 'bold',
+                }}>
+                    {getNetworkName()}
+                </div>
+
+                {/* Wallet address */}
+                <div style={{
+                    fontSize: '13px',
+                    color: '#58d8ff',
+                    fontFamily: 'monospace',
+                    letterSpacing: '0.5px',
+                }}>
                     🔗 {address?.slice(0, 6)}...{address?.slice(-4)}
                 </div>
+
+                {/* Disconnect button */}
                 <button
                     onClick={() => disconnect()}
                     style={{
                         fontSize: '12px',
                         padding: '6px 12px',
-                        background: 'linear-gradient(145deg, #ff6b6b, #cc0000)',
+                        background: 'transparent',
+                        border: '1px solid rgba(255, 107, 107, 0.5)',
+                        color: '#ff6b6b',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(255, 107, 107, 0.2)'
+                        e.currentTarget.style.borderColor = '#ff6b6b'
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent'
+                        e.currentTarget.style.borderColor = 'rgba(255, 107, 107, 0.5)'
                     }}
                 >
                     Disconnect

@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain, useChainId } from 'wagmi'
 import { parseAbi } from 'viem'
+import { base } from 'wagmi/chains'
 import { USDC_ADDRESS, DONATION_AMOUNT, DONATION_CONTRACT_ADDRESS } from '@/lib/wagmi'
 
 // ERC20 ABI for approve
@@ -23,7 +24,9 @@ interface DonateButtonProps {
 
 export default function DonateButton({ isSupporter, onDonateSuccess }: DonateButtonProps) {
     const { isConnected, address } = useAccount()
-    const [step, setStep] = useState<'idle' | 'approving' | 'donating'>('idle')
+    const chainId = useChainId()
+    const { switchChain } = useSwitchChain()
+    const [step, setStep] = useState<'idle' | 'switching' | 'approving' | 'donating'>('idle')
 
     const { writeContract, data: hash, isPending, isSuccess, isError } = useWriteContract()
 
@@ -67,6 +70,14 @@ export default function DonateButton({ isSupporter, onDonateSuccess }: DonateBut
         }
 
         try {
+            // Step 0: Switch to Base chain if not already
+            if (chainId !== base.id) {
+                setStep('switching')
+                await switchChain({ chainId: base.id })
+                // Wait a bit for chain switch
+                await new Promise(resolve => setTimeout(resolve, 1000))
+            }
+
             // Step 1: Approve USDC spending
             setStep('approving')
             writeContract({
@@ -94,12 +105,28 @@ export default function DonateButton({ isSupporter, onDonateSuccess }: DonateBut
 
     const isProcessing = isPending || isConfirming || step !== 'idle'
     const buttonText =
-        step === 'approving' ? '⏳ Approving USDC...' :
-            step === 'donating' ? '⏳ Processing Donation...' :
-                '💰 Donate $1 USDC'
+        step === 'switching' ? '🔄 Switching to Base...' :
+            step === 'approving' ? '⏳ Approving USDC...' :
+                step === 'donating' ? '⏳ Processing Donation...' :
+                    '💰 Donate $1 USDC'
+
+    // Show wrong network warning
+    const isWrongNetwork = chainId !== base.id
 
     return (
         <div className="wallet-section">
+            {isWrongNetwork && (
+                <div style={{
+                    fontSize: '12px',
+                    color: '#ff6b6b',
+                    marginBottom: '8px',
+                    padding: '8px',
+                    background: 'rgba(255, 107, 107, 0.1)',
+                    borderRadius: '6px',
+                }}>
+                    ⚠️ Switch to Base network for donation
+                </div>
+            )}
             <button
                 className="donate-btn"
                 onClick={handleDonate}
