@@ -8,28 +8,9 @@ const LEVEL_POINTS: Record<string, number> = {
     hard: 3
 }
 
-// Initialize Redis client
-// Try multiple possible env var names (Vercel/Upstash naming varies)
-const getRedisUrl = () => {
-    return process.env.STORAGE_REST_API_URL ||
-        process.env.STORAGE_URL ||
-        process.env.KV_REST_API_URL ||
-        process.env.UPSTASH_REDIS_REST_URL ||
-        ''
-}
-
-const getRedisToken = () => {
-    return process.env.STORAGE_REST_API_TOKEN ||
-        process.env.STORAGE_TOKEN ||
-        process.env.KV_REST_API_TOKEN ||
-        process.env.UPSTASH_REDIS_REST_TOKEN ||
-        ''
-}
-
-const redis = new Redis({
-    url: getRedisUrl(),
-    token: getRedisToken(),
-})
+// Initialize Redis client - auto-detect env vars
+// Upstash SDK picks up: KV_REST_API_URL, KV_REST_API_TOKEN, etc.
+const redis = Redis.fromEnv()
 
 interface PlayerStats {
     wallet: string
@@ -41,16 +22,6 @@ interface PlayerStats {
 
 export async function GET() {
     try {
-        // Check if Redis is configured
-        if (!getRedisUrl() || !getRedisToken()) {
-            console.error('Redis not configured - missing env vars')
-            return NextResponse.json({
-                entries: [],
-                total: 0,
-                error: 'Database not configured'
-            })
-        }
-
         // Get all player keys from Redis
         const keys = await redis.keys('player:*')
 
@@ -113,11 +84,6 @@ export async function GET() {
 // Record a win
 export async function POST(request: NextRequest) {
     try {
-        // Check if Redis is configured
-        if (!getRedisUrl() || !getRedisToken()) {
-            return NextResponse.json({ error: 'Database not configured' }, { status: 500 })
-        }
-
         const body = await request.json()
         const { wallet, level, isSupporter = false } = body
 

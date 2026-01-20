@@ -1,34 +1,10 @@
 import { NextResponse } from 'next/server'
 import { Redis } from '@upstash/redis'
 
-// Get Redis credentials (try multiple env var names)
-const getRedisUrl = () => {
-    return process.env.STORAGE_REST_API_URL ||
-        process.env.STORAGE_URL ||
-        process.env.KV_REST_API_URL ||
-        process.env.UPSTASH_REDIS_REST_URL ||
-        ''
-}
-
-const getRedisToken = () => {
-    return process.env.STORAGE_REST_API_TOKEN ||
-        process.env.STORAGE_TOKEN ||
-        process.env.KV_REST_API_TOKEN ||
-        process.env.UPSTASH_REDIS_REST_TOKEN ||
-        ''
-}
-
-const redis = new Redis({
-    url: getRedisUrl(),
-    token: getRedisToken(),
-})
+const redis = Redis.fromEnv()
 
 export async function GET() {
     try {
-        if (!getRedisUrl() || !getRedisToken()) {
-            return NextResponse.json({ error: 'Database not configured' }, { status: 500 })
-        }
-
         // Get all player keys
         const playerKeys = await redis.keys('player:*')
 
