@@ -12,12 +12,10 @@ export default function WalletConnect() {
     // Auto-connect Farcaster on mount
     useEffect(() => {
         if (!isConnected && connectors.length > 0) {
-            const farcasterConnector = connectors.find(c =>
-                String(c).toLowerCase().includes('farcaster')
-            )
-            if (farcasterConnector) {
-                // Auto-connect Farcaster silently
-                connect({ connector: farcasterConnector })
+            // Try Farcaster first (index 0 based on wagmi config)
+            const firstConnector = connectors[0]
+            if (firstConnector) {
+                connect({ connector: firstConnector })
             }
         }
     }, [connectors, isConnected, connect])
@@ -27,21 +25,16 @@ export default function WalletConnect() {
         setShowModal(false)
     }
 
-    // Get wallet info based on connector
-    const getWalletInfo = (connector: any, index: number) => {
-        const connectorStr = String(connector).toLowerCase()
-
-        if (connectorStr.includes('farcaster')) {
+    // Simplified: Just use index-based naming since we know the order from wagmi config
+    // wagmi config order: [farcasterMiniApp(), injected({ target: 'metaMask' })]
+    const getWalletInfo = (index: number) => {
+        if (index === 0) {
             return { name: 'Farcaster', icon: '🟣', color: '#8a63d2' }
         }
-        if (connectorStr.includes('metamask')) {
+        if (index === 1) {
             return { name: 'MetaMask', icon: '🦊', color: '#f6851b' }
         }
-        if (connectorStr.includes('injected')) {
-            return { name: 'Browser Wallet', icon: '🌐', color: '#666' }
-        }
-
-        return { name: `Wallet ${index + 1}`, icon: '💼', color: '#666' }
+        return { name: 'Browser Wallet', icon: '🌐', color: '#666' }
     }
 
     if (isConnected) {
@@ -101,7 +94,7 @@ export default function WalletConnect() {
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             {connectors.map((connector, index) => {
-                                const { name, icon, color } = getWalletInfo(connector, index)
+                                const { name, icon, color } = getWalletInfo(index)
 
                                 return (
                                     <button
@@ -163,9 +156,7 @@ export default function WalletConnect() {
                             textAlign: 'center',
                             lineHeight: '1.5'
                         }}>
-                            {connectors.length > 0 && String(connectors[0]).toLowerCase().includes('farcaster')
-                                ? '🟣 Farcaster users will auto-connect'
-                                : 'Connect your wallet to play'}
+                            🟣 Farcaster users auto-connect | 🦊 MetaMask for testing
                         </p>
                     </div>
                 </div>
