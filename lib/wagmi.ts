@@ -1,22 +1,20 @@
-import { http, createConfig } from 'wagmi'
 import { base } from 'wagmi/chains'
-import { farcasterMiniApp as miniAppConnector } from '@farcaster/miniapp-wagmi-connector'
+import { http, createConfig } from 'wagmi'
+import { farcasterMiniApp } from '@farcaster/miniapp-wagmi-connector'
 
 export const config = createConfig({
     chains: [base],
     transports: {
         [base.id]: http(),
     },
-    connectors: [
-        miniAppConnector()
-    ]
+    connectors: [farcasterMiniApp()],
 })
 
-// USDC contract on Base
+// USDC on Base Mainnet
 export const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as const
 
-// Game contract address (will be deployed)
-export const GAME_CONTRACT_ADDRESS = '0x0000000000000000000000000000000000000000' as const
-
-// Donation amount in USDC (6 decimals)
+// Donation amount: $1 USDC (6 decimals)
 export const DONATION_AMOUNT = 1_000_000n // $1 USDC
+
+// Smart Contract Address - dari environment variable
+export const DONATION_CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_GAME_CONTRACT || '0x0000000000000000000000000000000000000000') as `0x${string}`

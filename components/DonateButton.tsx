@@ -1,18 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { parseAbi } from 'viem'
-import { USDC_ADDRESS, DONATION_AMOUNT } from '@/lib/wagmi'
+import { USDC_ADDRESS, DONATION_AMOUNT, DONATION_CONTRACT_ADDRESS } from '@/lib/wagmi'
 
-// Simple ERC20 approve + transfer ABI
+// ERC20 ABI for approve
 const erc20Abi = parseAbi([
-    'function transfer(address to, uint256 amount) returns (bool)',
     'function approve(address spender, uint256 amount) returns (bool)',
 ])
 
-// Donation receiver address (will be your wallet)
-const DONATION_RECEIVER = '0x0000000000000000000000000000000000000000' as const // TODO: Replace with your wallet
+// Contract ABI for donate function
+const donationAbi = parseAbi([
+    'function donate() external',
+    'function isSupporter(address) view returns (bool)',
+])
 
 interface DonateButtonProps {
     isSupporter: boolean
@@ -21,19 +23,37 @@ interface DonateButtonProps {
 
 export default function DonateButton({ isSupporter, onDonateSuccess }: DonateButtonProps) {
     const { isConnected, address } = useAccount()
-    const [isDonating, setIsDonating] = useState(false)
+    const [step, setStep] = useState<'idle' | 'approving' | 'donating'>('idle')
 
-    const { writeContract, data: hash, isPending } = useWriteContract()
+    const { writeContract, data: hash, isPending, isSuccess, isError } = useWriteContract()
 
-    const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    const { isLoading: isConfirming, isSuccess: txSuccess } = useWaitForTransactionReceipt({
         hash,
     })
 
-    // Handle successful donation
-    if (isSuccess && isDonating) {
-        setIsDonating(false)
-        onDonateSuccess?.()
-    }
+    // Handle successful transaction
+    useEffect(() => {
+        if (txSuccess && step === 'approving') {
+            // After approve success, call donate
+            setStep('donating')
+            writeContract({
+                address: DONATION_CONTRACT_ADDRESS,
+                abi: donationAbi,
+                functionName: 'donate',
+            })
+        } else if (txSuccess && step === 'donating') {
+            // Donation complete
+            setStep('idle')
+            onDonateSuccess?.()
+        }
+    }, [txSuccess, step])
+
+    // Handle errors
+    useEffect(() => {
+        if (isError) {
+            setStep('idle')
+        }
+    }, [isError])
 
     const handleDonate = async () => {
         if (!isConnected) {
@@ -41,19 +61,23 @@ export default function DonateButton({ isSupporter, onDonateSuccess }: DonateBut
             return
         }
 
-        setIsDonating(true)
+        if (DONATION_CONTRACT_ADDRESS === '0x0000000000000000000000000000000000000000') {
+            alert('Contract not deployed yet. Please deploy smart contract first.')
+            return
+        }
 
         try {
-            // Transfer USDC directly to receiver
+            // Step 1: Approve USDC spending
+            setStep('approving')
             writeContract({
                 address: USDC_ADDRESS,
                 abi: erc20Abi,
-                functionName: 'transfer',
-                args: [DONATION_RECEIVER, DONATION_AMOUNT],
+                functionName: 'approve',
+                args: [DONATION_CONTRACT_ADDRESS, DONATION_AMOUNT],
             })
         } catch (error) {
             console.error('Donation failed:', error)
-            setIsDonating(false)
+            setStep('idle')
         }
     }
 
@@ -68,14 +92,20 @@ export default function DonateButton({ isSupporter, onDonateSuccess }: DonateBut
         )
     }
 
+    const isProcessing = isPending || isConfirming || step !== 'idle'
+    const buttonText =
+        step === 'approving' ? '⏳ Approving USDC...' :
+            step === 'donating' ? '⏳ Processing Donation...' :
+                '💰 Donate $1 USDC'
+
     return (
         <div className="wallet-section">
             <button
                 className="donate-btn"
                 onClick={handleDonate}
-                disabled={!isConnected || isPending || isConfirming}
+                disabled={!isConnected || isProcessing}
             >
-                {isPending || isConfirming ? '⏳ Processing...' : '💰 Donate $1 USDC'}
+                {buttonText}
             </button>
             <p style={{ fontSize: '11px', color: '#888', marginTop: '5px' }}>
                 Become a Supporter → Get FCFS free NFT mint!
