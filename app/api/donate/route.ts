@@ -1,66 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Redis } from '@upstash/redis'
 
-// In-memory storage for supporters (replace with Vercel Postgres in production)
-interface Supporter {
-    wallet: string
-    donatedAt: number
-}
+const redis = new Redis({
+    url: process.env.STORAGE_REST_API_URL || '',
+    token: process.env.STORAGE_REST_API_TOKEN || '',
+})
 
-const supporters: Supporter[] = []
-
-// Record a donation
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
         const { wallet } = body
 
         if (!wallet) {
-            return NextResponse.json({ error: 'Wallet required' }, { status: 400 })
+            return NextResponse.json({ error: 'Missing wallet' }, { status: 400 })
         }
 
-        // Check if already a supporter
-        const existing = supporters.find(s => s.wallet.toLowerCase() === wallet.toLowerCase())
+        const walletLower = wallet.toLowerCase()
+        const playerKey = `player:${walletLower}`
+        const supporterKey = `supporter:${walletLower}`
 
-        if (!existing) {
-            supporters.push({
-                wallet: wallet.toLowerCase(),
-                donatedAt: Date.now()
+        // Update player supporter status
+        const existing = await redis.hgetall(playerKey)
+        if (existing) {
+            await redis.hset(playerKey, {
+                ...existing,
+                isSupporter: true
             })
         }
 
-        // Update supporter status in leaderboard
-        for (const level of ['easy', 'medium', 'hard']) {
-            await fetch(new URL('/api/leaderboard', request.url).toString(), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ wallet, level, isSupporter: true })
-            })
-        }
-
-        return NextResponse.json({
-            success: true,
-            isSupporter: true,
-            message: 'Thank you for your support! You will receive FCFS free NFT mint.'
+        // Record in supporters list
+        await redis.hset(supporterKey, {
+            wallet: walletLower,
+            donatedAt: Date.now()
         })
+
+        return NextResponse.json({ success: true })
     } catch (error) {
+        console.error('Donate POST error:', error)
         return NextResponse.json({ error: 'Server error' }, { status: 500 })
     }
 }
 
-// Check supporter status
 export async function GET(request: NextRequest) {
-    const { searchParams } = new URL(request.url)
-    const wallet = searchParams.get('wallet')
+    try {
+        const { searchParams } = new URL(request.url)
+        const wallet = searchParams.get('wallet')
 
-    if (!wallet) {
-        return NextResponse.json({ error: 'Wallet required' }, { status: 400 })
+        if (!wallet) {
+            return NextResponse.json({ error: 'Missing wallet' }, { status: 400 })
+        }
+
+        const walletLower = wallet.toLowerCase()
+        const supporter = await redis.hgetall(`supporter:${walletLower}`)
+
+        return NextResponse.json({
+            isSupporter: !!supporter,
+            donatedAt: supporter?.donatedAt || null
+        })
+    } catch (error) {
+        console.error('Donate GET error:', error)
+        return NextResponse.json({ error: 'Server error' }, { status: 500 })
     }
-
-    const supporter = supporters.find(s => s.wallet.toLowerCase() === wallet.toLowerCase())
-
-    return NextResponse.json({
-        wallet,
-        isSupporter: !!supporter,
-        donatedAt: supporter?.donatedAt
-    })
 }

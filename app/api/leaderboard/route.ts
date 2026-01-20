@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Redis } from '@upstash/redis'
 
 // Point values per level
 const LEVEL_POINTS: Record<string, number> = {
@@ -7,7 +8,13 @@ const LEVEL_POINTS: Record<string, number> = {
     hard: 3
 }
 
-// In-memory storage (replace with Vercel Postgres in production)
+// Initialize Redis client with environment variables
+// Vercel auto-adds these when you connect Upstash
+const redis = new Redis({
+    url: process.env.STORAGE_REST_API_URL || '',
+    token: process.env.STORAGE_REST_API_TOKEN || '',
+})
+
 interface PlayerStats {
     wallet: string
     easyWins: number
@@ -16,33 +23,61 @@ interface PlayerStats {
     isSupporter: boolean
 }
 
-const players: Map<string, PlayerStats> = new Map()
-
 export async function GET() {
-    // Calculate total points for each player and sort
-    const entries = Array.from(players.values())
-        .map(player => ({
-            wallet: player.wallet,
-            totalPoints:
-                player.easyWins * LEVEL_POINTS.easy +
-                player.mediumWins * LEVEL_POINTS.medium +
-                player.hardWins * LEVEL_POINTS.hard,
-            easyWins: player.easyWins,
-            mediumWins: player.mediumWins,
-            hardWins: player.hardWins,
-            isSupporter: player.isSupporter
-        }))
-        .sort((a, b) => b.totalPoints - a.totalPoints)
-        .slice(0, 100)
-        .map((entry, idx) => ({
-            rank: idx + 1,
-            ...entry
-        }))
+    try {
+        // Get all player keys from Redis
+        const keys = await redis.keys('player:*')
 
-    return NextResponse.json({
-        entries,
-        total: players.size
-    })
+        if (keys.length === 0) {
+            return NextResponse.json({
+                entries: [],
+                total: 0
+            })
+        }
+
+        // Fetch all player data
+        const players: PlayerStats[] = []
+        for (const key of keys) {
+            const player = await redis.hgetall(key)
+            if (player) {
+                players.push({
+                    wallet: String(player.wallet || ''),
+                    easyWins: Number(player.easyWins || 0),
+                    mediumWins: Number(player.mediumWins || 0),
+                    hardWins: Number(player.hardWins || 0),
+                    isSupporter: Boolean(player.isSupporter || false)
+                })
+            }
+        }
+
+        // Calculate total points for each player and sort
+        const entries = players
+            .map(player => ({
+                wallet: player.wallet,
+                totalPoints:
+                    player.easyWins * LEVEL_POINTS.easy +
+                    player.mediumWins * LEVEL_POINTS.medium +
+                    player.hardWins * LEVEL_POINTS.hard,
+                easyWins: player.easyWins,
+                mediumWins: player.mediumWins,
+                hardWins: player.hardWins,
+                isSupporter: player.isSupporter
+            }))
+            .sort((a, b) => b.totalPoints - a.totalPoints)
+            .slice(0, 100)
+            .map((entry, idx) => ({
+                rank: idx + 1,
+                ...entry
+            }))
+
+        return NextResponse.json({
+            entries,
+            total: players.length
+        })
+    } catch (error) {
+        console.error('Leaderboard GET error:', error)
+        return NextResponse.json({ error: 'Failed to fetch leaderboard' }, { status: 500 })
+    }
 }
 
 // Record a win
@@ -60,17 +95,17 @@ export async function POST(request: NextRequest) {
         }
 
         const walletLower = wallet.toLowerCase()
-        let player = players.get(walletLower)
+        const key = `player:${walletLower}`
 
-        if (!player) {
-            player = {
-                wallet: walletLower,
-                easyWins: 0,
-                mediumWins: 0,
-                hardWins: 0,
-                isSupporter: false
-            }
-            players.set(walletLower, player)
+        // Get existing player data or create new
+        const existing = await redis.hgetall(key)
+
+        const player: PlayerStats = {
+            wallet: walletLower,
+            easyWins: Number(existing?.easyWins || 0),
+            mediumWins: Number(existing?.mediumWins || 0),
+            hardWins: Number(existing?.hardWins || 0),
+            isSupporter: Boolean(existing?.isSupporter || false)
         }
 
         // Increment wins for the level
@@ -79,6 +114,15 @@ export async function POST(request: NextRequest) {
         else if (level === 'hard') player.hardWins++
 
         if (isSupporter) player.isSupporter = true
+
+        // Save to Redis
+        await redis.hset(key, {
+            wallet: player.wallet,
+            easyWins: player.easyWins,
+            mediumWins: player.mediumWins,
+            hardWins: player.hardWins,
+            isSupporter: player.isSupporter
+        })
 
         // Calculate new total points
         const totalPoints =
@@ -91,7 +135,8 @@ export async function POST(request: NextRequest) {
             totalPoints,
             pointsEarned: LEVEL_POINTS[level]
         })
-    } catch {
+    } catch (error) {
+        console.error('Leaderboard POST error:', error)
         return NextResponse.json({ error: 'Server error' }, { status: 500 })
     }
 }
