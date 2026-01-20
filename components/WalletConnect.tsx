@@ -93,7 +93,7 @@ export default function WalletConnect() {
                         </h2>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {connectors.map((connector, index) => {
+                            {connectors.slice(0, 2).map((connector, index) => {
                                 const { name, icon, color } = getWalletInfo(index)
 
                                 return (
