@@ -1,16 +1,62 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { useAccount } from 'wagmi'
+import { useState, useCallback, useEffect } from 'react'
+import { useAccount, useReadContract } from 'wagmi'
+import { parseAbi } from 'viem'
 import Navbar from '@/components/Navbar'
 import ScratchGame from '@/components/ScratchGame'
 import DonateButton from '@/components/DonateButton'
 import Leaderboard from '@/components/Leaderboard'
+import { DONATION_CONTRACT_ADDRESS } from '@/lib/wagmi'
+
+// Contract ABI for checking supporter status
+const donationAbi = parseAbi([
+    'function isSupporter(address) view returns (bool)',
+])
 
 export default function Home() {
     const { address, isConnected } = useAccount()
     const [isSupporter, setIsSupporter] = useState(false)
     const [stats, setStats] = useState({ wins: 0, losses: 0, points: 0 })
+
+    // Read supporter status from smart contract
+    const { data: isSupporterOnChain } = useReadContract({
+        address: DONATION_CONTRACT_ADDRESS,
+        abi: donationAbi,
+        functionName: 'isSupporter',
+        args: address ? [address] : undefined,
+        query: {
+            enabled: !!address && DONATION_CONTRACT_ADDRESS !== '0x0000000000000000000000000000000000000000'
+        }
+    })
+
+    // Update supporter status when contract data changes
+    useEffect(() => {
+        if (isSupporterOnChain !== undefined) {
+            setIsSupporter(isSupporterOnChain)
+        }
+    }, [isSupporterOnChain])
+
+    // Also check Redis API for supporter status (fallback)
+    useEffect(() => {
+        const checkSupporterStatus = async () => {
+            if (!address) return
+
+            try {
+                const response = await fetch(`/api/donate?wallet=${address}`)
+                const data = await response.json()
+                if (data.isSupporter) {
+                    setIsSupporter(true)
+                }
+            } catch (error) {
+                console.error('Failed to check supporter status:', error)
+            }
+        }
+
+        if (address) {
+            checkSupporterStatus()
+        }
+    }, [address])
 
     const handleWin = useCallback(async (level: string) => {
         const pointsEarned = level === 'easy' ? 1 : level === 'medium' ? 2 : 3
