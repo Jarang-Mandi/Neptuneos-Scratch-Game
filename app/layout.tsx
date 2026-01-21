@@ -25,6 +25,22 @@ export default function RootLayout({
         <html lang="id" suppressHydrationWarning>
             <head>
                 <meta name="fc:frame" content="vNext" />
+                <meta
+                    name="fc:miniapp"
+                    content={JSON.stringify({
+                        version: "next",
+                        imageUrl: "https://neptuneos-scratch-game.vercel.app/og-image.png",
+                        button: {
+                            title: "Play Game",
+                            action: {
+                                type: "launch_frame",
+                                url: "https://neptuneos-scratch-game.vercel.app",
+                                splashImageUrl: "https://neptuneos-scratch-game.vercel.app/splash.png",
+                                splashBackgroundColor: "#0a1628"
+                            }
+                        }
+                    })}
+                />
                 <link rel="icon" href="/icon.png" type="image/png" />
                 <link rel="apple-touch-icon" href="/icon.png" />
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
