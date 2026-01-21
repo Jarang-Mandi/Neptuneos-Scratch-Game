@@ -50,6 +50,16 @@ export default function ScratchGame({ onWin, onLose }: ScratchGameProps) {
         }
     }, [])
 
+    // Reset cells when level changes (fix for grid not updating after game end)
+    useEffect(() => {
+        // Clear cells when level changes so grid updates to correct size
+        setCells([])
+        setCellsRevealed(0)
+        setMessage('')
+        setGameActive(false)
+        setBombIdx([])
+    }, [level])
+
     const toggleTheme = () => {
         const newMode = !isLightMode
         setIsLightMode(newMode)
