@@ -231,17 +231,9 @@ export default function ScratchGame({ onWin, onLose }: ScratchGameProps) {
 
                 <div id="message">{message}</div>
 
-                <button id="toggleMusic" onClick={toggleMusic}>
-                    {isMuted ? '🔇 Mute Mode' : '🔊 Music'}
-                </button>
-                <button id="toggleTheme" onClick={toggleTheme}>
-                    {isLightMode ? '☀️ Light' : '🌑 Dark'}
-                </button>
-
-                {/* Audio elements */}
+                {/* Audio elements for win/lose sounds */}
                 <audio ref={winSoundRef} src="/sounds/win.wav" preload="auto" />
                 <audio ref={loseSoundRef} src="/sounds/lose.flac" preload="auto" />
-                <audio ref={bgmRef} src="/sounds/the-return-of-the-8-bit-era-301292.mp3" preload="auto" loop />
             </div>
         </>
     )

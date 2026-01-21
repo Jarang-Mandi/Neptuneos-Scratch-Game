@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useAccount, useReadContract } from 'wagmi'
 import { parseAbi } from 'viem'
 import Navbar from '@/components/Navbar'
 import ScratchGame from '@/components/ScratchGame'
 import DonateButton from '@/components/DonateButton'
-import Leaderboard from '@/components/Leaderboard'
+import InlineLeaderboard from '@/components/InlineLeaderboard'
 import { DONATION_CONTRACT_ADDRESS } from '@/lib/wagmi'
 
 // Contract ABI for checking supporter status
@@ -18,6 +18,9 @@ export default function Home() {
     const { address, isConnected } = useAccount()
     const [isSupporter, setIsSupporter] = useState(false)
     const [stats, setStats] = useState({ wins: 0, losses: 0, points: 0 })
+    const [leaderboardRefresh, setLeaderboardRefresh] = useState(0)
+    const [isMusicPlaying, setIsMusicPlaying] = useState(false)
+    const bgmRef = useRef<HTMLAudioElement>(null)
 
     // Read supporter status from smart contract
     const { data: isSupporterOnChain } = useReadContract({
@@ -58,6 +61,21 @@ export default function Home() {
         }
     }, [address])
 
+    // Music toggle handler
+    const handleMusicToggle = useCallback(() => {
+        if (bgmRef.current) {
+            if (isMusicPlaying) {
+                bgmRef.current.pause()
+                setIsMusicPlaying(false)
+            } else {
+                bgmRef.current.volume = 0.5
+                bgmRef.current.play()
+                    .then(() => setIsMusicPlaying(true))
+                    .catch(err => console.warn('Music play failed:', err.message))
+            }
+        }
+    }, [isMusicPlaying])
+
     const handleWin = useCallback(async (level: string) => {
         const pointsEarned = level === 'easy' ? 1 : level === 'medium' ? 2 : 3
         setStats(prev => ({
@@ -78,6 +96,8 @@ export default function Home() {
                         isSupporter
                     })
                 })
+                // Refresh leaderboard
+                setLeaderboardRefresh(prev => prev + 1)
             } catch (error) {
                 console.error('Failed to record win:', error)
             }
@@ -107,8 +127,14 @@ export default function Home() {
 
     return (
         <>
-            {/* Navbar with Wallet */}
-            <Navbar />
+            {/* Background Music */}
+            <audio ref={bgmRef} src="/bgm.mp3" loop preload="auto" />
+
+            {/* Navbar with Wallet & Burger Menu */}
+            <Navbar
+                onMusicToggle={handleMusicToggle}
+                isMusicPlaying={isMusicPlaying}
+            />
 
             <main>
                 {/* Wallet Connection Required Notice */}
@@ -180,10 +206,8 @@ export default function Home() {
                     </div>
                 )}
 
-                {/* Leaderboard Button - Always visible */}
-                <div style={{ textAlign: 'center', marginTop: '15px' }}>
-                    <Leaderboard />
-                </div>
+                {/* Inline Leaderboard - Always visible */}
+                <InlineLeaderboard refreshTrigger={leaderboardRefresh} />
             </main>
         </>
     )
