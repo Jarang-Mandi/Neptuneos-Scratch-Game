@@ -31,7 +31,7 @@ export default function RootLayout({
                         version: "next",
                         imageUrl: "https://neptuneos-scratch-game.vercel.app/og-image.png",
                         button: {
-                            title: "Play Game",
+                            title: "Scratch and Win",
                             action: {
                                 type: "launch_frame",
                                 url: "https://neptuneos-scratch-game.vercel.app",
