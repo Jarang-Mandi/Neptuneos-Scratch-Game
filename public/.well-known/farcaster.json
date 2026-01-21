@@ -10,6 +10,7 @@
         "homeUrl": "https://neptuneos-scratch-game.vercel.app",
         "iconUrl": "https://neptuneos-scratch-game.vercel.app/icon.png",
         "imageUrl": "https://neptuneos-scratch-game.vercel.app/og-image.png",
+        "buttonTitle": "Scratch and Win",
         "splashImageUrl": "https://neptuneos-scratch-game.vercel.app/splash.png",
         "splashBackgroundColor": "#0a1628",
         "subtitle": "Scratch to Win",
@@ -23,9 +24,9 @@
         ],
         "screenshotUrls": [],
         "heroImageUrl": "https://neptuneos-scratch-game.vercel.app/og-image.png",
-        "tagline": "Scratch and Win!",
+        "tagline": "Scratch and Win",
         "ogTitle": "Scratch Game - Base Mini App",
-        "ogDescription": "Free scratch card game on Base. Play, compete, and win the NFT!",
+        "ogDescription": "Free scratch card game on Base. Play, compete, and win the NFT",
         "ogImageUrl": "https://neptuneos-scratch-game.vercel.app/og-image.png"
     }
 }
