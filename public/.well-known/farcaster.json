@@ -1,18 +1,30 @@
 {
     "accountAssociation": {
-        "header": "eyJmaWQiOjAsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIn0",
-        "payload": "eyJkb21haW4iOiJ5b3VyLWRvbWFpbi5jb20ifQ",
-        "signature": "MHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw"
+        "header": "",
+        "payload": "",
+        "signature": ""
     },
-    "frame": {
+    "miniapp": {
         "version": "1",
         "name": "Scratch Game",
-        "iconUrl": "https://your-domain.com/icon.png",
-        "homeUrl": "https://your-domain.com",
-        "imageUrl": "https://your-domain.com/og-image.png",
-        "buttonTitle": "Play Now",
-        "splashImageUrl": "https://your-domain.com/splash.png",
-        "splashBackgroundColor": "#0f2027",
-        "webhookUrl": "https://your-domain.com/api/webhook"
+        "homeUrl": "https://neptuneos-scratch-game.vercel.app",
+        "iconUrl": "https://neptuneos-scratch-game.vercel.app/icon.png",
+        "splashImageUrl": "https://neptuneos-scratch-game.vercel.app/splash.png",
+        "splashBackgroundColor": "#0a1628",
+        "subtitle": "Scratch to Win Points!",
+        "description": "Free-to-play scratch card game on Base. Compete on the leaderboard and donate $1 USDC to become a Supporter!",
+        "primaryCategory": "games",
+        "tags": [
+            "games",
+            "scratch",
+            "lottery",
+            "base"
+        ],
+        "screenshotUrls": [],
+        "heroImageUrl": "https://neptuneos-scratch-game.vercel.app/og-image.png",
+        "tagline": "Scratch & Win!",
+        "ogTitle": "Scratch Game - Base Mini App",
+        "ogDescription": "Free scratch card game on Base. Play, compete, and become a Supporter!",
+        "ogImageUrl": "https://neptuneos-scratch-game.vercel.app/og-image.png"
     }
 }
