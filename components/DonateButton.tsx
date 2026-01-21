@@ -156,8 +156,8 @@ export default function DonateButton({ isSupporter, onDonateSuccess }: DonateBut
     const buttonText =
         step === 'switching' ? '🔄 Switching to Base...' :
             step === 'approving' ? '⏳ Approving USDC...' :
-                step === 'donating' ? '⏳ Processing Donation...' :
-                    '💰 Donate $1 USDC'
+                step === 'donating' ? '⏳ Processing...' :
+                    '💎 Get Supporter Badge - $1'
 
     // Show wrong network warning
     const isWrongNetwork = chainId !== base.id
@@ -215,7 +215,7 @@ export default function DonateButton({ isSupporter, onDonateSuccess }: DonateBut
                 {buttonText}
             </button>
             <p style={{ fontSize: '11px', color: '#888', marginTop: '5px' }}>
-                Become a Supporter → Get FCFS free NFT mint!
+                Unlock Supporter perks and FCFS free NFT mint
             </p>
         </div>
     )
