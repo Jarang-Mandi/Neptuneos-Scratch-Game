@@ -3,6 +3,14 @@
 import { useState, useEffect } from 'react'
 import { useAccount, useConnect, useDisconnect, useChainId } from 'wagmi'
 import { base } from 'wagmi/chains'
+import { sdk } from '@farcaster/miniapp-sdk'
+
+interface FarcasterUser {
+    fid: number
+    username?: string
+    displayName?: string
+    pfpUrl?: string
+}
 
 export default function WalletConnect() {
     const { isConnected, address } = useAccount()
@@ -10,11 +18,38 @@ export default function WalletConnect() {
     const { connect, connectors, isPending } = useConnect()
     const { disconnect } = useDisconnect()
     const [showModal, setShowModal] = useState(false)
+    const [farcasterUser, setFarcasterUser] = useState<FarcasterUser | null>(null)
+    const [isInMiniApp, setIsInMiniApp] = useState(false)
+
+    // Load Farcaster user context
+    useEffect(() => {
+        const loadFarcasterUser = async () => {
+            try {
+                const miniAppStatus = await sdk.isInMiniApp()
+                setIsInMiniApp(miniAppStatus)
+
+                if (miniAppStatus) {
+                    const context = await sdk.context
+                    if (context?.user) {
+                        setFarcasterUser({
+                            fid: context.user.fid,
+                            username: context.user.username,
+                            displayName: context.user.displayName,
+                            pfpUrl: context.user.pfpUrl,
+                        })
+                    }
+                }
+            } catch (error) {
+                console.log('Not in Farcaster Mini App context')
+            }
+        }
+
+        loadFarcasterUser()
+    }, [isConnected])
 
     // Auto-connect Farcaster on mount
     useEffect(() => {
         if (!isConnected && connectors.length > 0) {
-            // Try Farcaster first (index 0 based on wagmi config)
             const firstConnector = connectors[0]
             if (firstConnector) {
                 connect({ connector: firstConnector })
@@ -27,8 +62,7 @@ export default function WalletConnect() {
         setShowModal(false)
     }
 
-    // Wallet info mapping - order matches wagmi config
-    // [farcasterMiniApp, metaMask, okxwallet]
+    // Wallet info mapping
     const getWalletInfo = (index: number) => {
         const wallets = [
             { name: 'Farcaster', icon: '🟣', color: '#8a63d2' },
@@ -50,57 +84,84 @@ export default function WalletConnect() {
             <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
+                gap: '10px',
                 background: 'rgba(0, 0, 0, 0.3)',
-                padding: '8px 16px',
+                padding: '6px 12px',
                 borderRadius: '12px',
                 border: '1px solid rgba(88, 216, 255, 0.2)',
             }}>
-                {/* Network indicator */}
-                <div style={{
-                    fontSize: '11px',
-                    padding: '4px 8px',
-                    background: chainId === base.id ? 'rgba(0, 82, 255, 0.2)' : 'rgba(255, 107, 107, 0.2)',
-                    color: chainId === base.id ? '#58d8ff' : '#ff6b6b',
-                    borderRadius: '6px',
-                    fontWeight: 'bold',
-                }}>
-                    {getNetworkName()}
-                </div>
+                {/* Farcaster Profile Picture */}
+                {farcasterUser?.pfpUrl ? (
+                    <img
+                        src={farcasterUser.pfpUrl}
+                        alt="Profile"
+                        style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: '50%',
+                            border: '2px solid #8a63d2',
+                        }}
+                    />
+                ) : (
+                    <div style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #8a63d2, #58d8ff)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                    }}>
+                        🔗
+                    </div>
+                )}
 
-                {/* Wallet address */}
-                <div style={{
-                    fontSize: '13px',
-                    color: '#58d8ff',
-                    fontFamily: 'monospace',
-                    letterSpacing: '0.5px',
-                }}>
-                    🔗 {address?.slice(0, 6)}...{address?.slice(-4)}
+                {/* User Info */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    {/* Display Name or Username */}
+                    {farcasterUser ? (
+                        <span style={{
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            color: '#fff',
+                        }}>
+                            {farcasterUser.displayName || `@${farcasterUser.username}`}
+                        </span>
+                    ) : (
+                        <span style={{
+                            fontSize: '11px',
+                            color: '#58d8ff',
+                            fontFamily: 'monospace',
+                        }}>
+                            {address?.slice(0, 6)}...{address?.slice(-4)}
+                        </span>
+                    )}
+
+                    {/* FID or Network */}
+                    <span style={{
+                        fontSize: '10px',
+                        color: farcasterUser ? '#8a63d2' : chainId === base.id ? '#58d8ff' : '#ff6b6b',
+                    }}>
+                        {farcasterUser ? `FID: ${farcasterUser.fid}` : getNetworkName()}
+                    </span>
                 </div>
 
                 {/* Disconnect button */}
                 <button
                     onClick={() => disconnect()}
                     style={{
-                        fontSize: '12px',
-                        padding: '6px 12px',
+                        fontSize: '11px',
+                        padding: '4px 8px',
                         background: 'transparent',
-                        border: '1px solid rgba(255, 107, 107, 0.5)',
+                        border: '1px solid rgba(255, 107, 107, 0.4)',
                         color: '#ff6b6b',
-                        borderRadius: '8px',
+                        borderRadius: '6px',
                         cursor: 'pointer',
-                        transition: 'all 0.2s',
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(255, 107, 107, 0.2)'
-                        e.currentTarget.style.borderColor = '#ff6b6b'
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'transparent'
-                        e.currentTarget.style.borderColor = 'rgba(255, 107, 107, 0.5)'
+                        marginLeft: '4px',
                     }}
                 >
-                    Disconnect
+                    ✕
                 </button>
             </div>
         )
@@ -111,9 +172,9 @@ export default function WalletConnect() {
             <button
                 onClick={() => setShowModal(true)}
                 disabled={isPending}
-                style={{ fontSize: '14px', padding: '10px 20px' }}
+                style={{ fontSize: '13px', padding: '8px 16px' }}
             >
-                {isPending ? '⏳ Connecting...' : '🔗 Connect Wallet'}
+                {isPending ? '⏳ Connecting...' : '🔗 Connect'}
             </button>
 
             {/* Wallet Selection Modal */}
@@ -182,7 +243,6 @@ export default function WalletConnect() {
                                 )
                             })}
 
-                            {/* No wallets detected */}
                             {connectors.length === 0 && (
                                 <div style={{ textAlign: 'center', padding: '20px' }}>
                                     <p style={{ marginBottom: '15px', color: '#aaa' }}>
