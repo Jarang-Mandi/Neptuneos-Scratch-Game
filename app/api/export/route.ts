@@ -1,12 +1,46 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { Redis } from '@upstash/redis'
+import { Ratelimit } from '@upstash/ratelimit'
 
 const redis = Redis.fromEnv()
 
-export async function GET() {
+// Strict rate limiter: 2 requests per hour per IP (export is expensive)
+const ratelimit = new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(2, '3600 s'),
+    analytics: true,
+})
+
+export async function GET(request: NextRequest) {
     try {
-        // Get all player keys
-        const playerKeys = await redis.keys('player:*')
+        // Rate limiting - export is expensive, limit to 2 per hour
+        const ip = request.headers.get('x-forwarded-for') || 'anonymous'
+        const { success, remaining } = await ratelimit.limit(`export:${ip}`)
+
+        if (!success) {
+            return NextResponse.json(
+                {
+                    error: 'Export rate limited. Please try again later.',
+                    message: 'You can only export data 2 times per hour.'
+                },
+                { status: 429 }
+            )
+        }
+
+        // Optional: Check for admin key (if you want to restrict exports)
+        // const authKey = request.headers.get('x-admin-key')
+        // if (authKey !== process.env.ADMIN_KEY) {
+        //     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        // }
+
+        // Get all player keys using SCAN (more efficient)
+        const playerKeys: string[] = []
+        let cursor = '0'
+        do {
+            const result = await redis.scan(cursor, { match: 'player:*', count: 100 })
+            cursor = String(result[0])
+            playerKeys.push(...result[1])
+        } while (cursor !== '0')
 
         // Fetch all players
         const players = []
@@ -32,10 +66,16 @@ export async function GET() {
         // Sort by total points
         const sorted = players.sort((a, b) => b.totalPoints - a.totalPoints)
 
-        // Get supporters
-        const supporterKeys = await redis.keys('supporter:*')
-        const supporters: { wallet: string; donatedAt: number }[] = []
+        // Get supporters using SCAN
+        const supporterKeys: string[] = []
+        cursor = '0'
+        do {
+            const result = await redis.scan(cursor, { match: 'supporter:*', count: 100 })
+            cursor = String(result[0])
+            supporterKeys.push(...result[1])
+        } while (cursor !== '0')
 
+        const supporters: { wallet: string; donatedAt: number }[] = []
         for (const key of supporterKeys) {
             const supporter = await redis.hgetall(key)
             if (supporter) {
@@ -51,6 +91,7 @@ export async function GET() {
             timestamp: new Date().toISOString(),
             totalPlayers: players.length,
             totalSupporters: supporters.length,
+            remainingExports: remaining,
             leaderboard: sorted,
             supporters: supporters.sort((a, b) => a.donatedAt - b.donatedAt)
         }
@@ -58,7 +99,8 @@ export async function GET() {
         return new NextResponse(JSON.stringify(exportData, null, 2), {
             headers: {
                 'Content-Type': 'application/json',
-                'Content-Disposition': `attachment; filename="leaderboard-export-${Date.now()}.json"`
+                'Content-Disposition': `attachment; filename="leaderboard-export-${Date.now()}.json"`,
+                'X-RateLimit-Remaining': String(remaining)
             }
         })
     } catch (error) {
