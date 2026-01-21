@@ -9,6 +9,7 @@
         "name": "The Scratch Game",
         "homeUrl": "https://neptuneos-scratch-game.vercel.app",
         "iconUrl": "https://neptuneos-scratch-game.vercel.app/icon.png",
+        "imageUrl": "https://neptuneos-scratch-game.vercel.app/og-image.png",
         "splashImageUrl": "https://neptuneos-scratch-game.vercel.app/splash.png",
         "splashBackgroundColor": "#0a1628",
         "subtitle": "Scratch to Win",
