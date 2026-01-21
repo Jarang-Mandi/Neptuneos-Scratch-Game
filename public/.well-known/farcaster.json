@@ -6,13 +6,13 @@
     },
     "miniapp": {
         "version": "1",
-        "name": "Scratch Game",
+        "name": "The Scratch Game",
         "homeUrl": "https://neptuneos-scratch-game.vercel.app",
         "iconUrl": "https://neptuneos-scratch-game.vercel.app/icon.png",
         "splashImageUrl": "https://neptuneos-scratch-game.vercel.app/splash.png",
         "splashBackgroundColor": "#0a1628",
-        "subtitle": "Scratch to Win Points!",
-        "description": "Free-to-play scratch card game on Base. Compete on the leaderboard and donate $1 USDC to become a Supporter!",
+        "subtitle": "Scratch to Win",
+        "description": "Free-to-play scratch card game on Base. Compete on the leaderboard and win the NFT",
         "primaryCategory": "games",
         "tags": [
             "games",
@@ -24,7 +24,7 @@
         "heroImageUrl": "https://neptuneos-scratch-game.vercel.app/og-image.png",
         "tagline": "Scratch & Win!",
         "ogTitle": "Scratch Game - Base Mini App",
-        "ogDescription": "Free scratch card game on Base. Play, compete, and become a Supporter!",
+        "ogDescription": "Free scratch card game on Base. Play, compete, and win the NFT!",
         "ogImageUrl": "https://neptuneos-scratch-game.vercel.app/og-image.png"
     }
 }
