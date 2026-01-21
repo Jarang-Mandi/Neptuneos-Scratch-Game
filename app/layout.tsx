@@ -24,17 +24,14 @@ export default function RootLayout({
     return (
         <html lang="id" suppressHydrationWarning>
             <head>
-                {/* Farcaster Frame v2 meta tags */}
-                <meta name="fc:frame" content="vNext" />
-                <meta name="fc:frame:image" content="https://neptuneos-scratch-game.vercel.app/og-image.png" />
-                <meta name="fc:frame:button:1" content="Scratch and Win" />
-                <meta name="fc:frame:button:1:action" content="launch_frame" />
-                <meta name="fc:frame:button:1:target" content="https://neptuneos-scratch-game.vercel.app" />
-
-                {/* Mini App embed meta tag */}
+                {/* Farcaster Mini App Embed - must have stringified JSON */}
+                <meta
+                    name="fc:frame"
+                    content='{"version":"1","imageUrl":"https://neptuneos-scratch-game.vercel.app/og-image.png","button":{"title":"Scratch and Win","action":{"type":"launch_frame","name":"The Scratch Game","url":"https://neptuneos-scratch-game.vercel.app","splashImageUrl":"https://neptuneos-scratch-game.vercel.app/splash.png","splashBackgroundColor":"#0a1628"}}}'
+                />
                 <meta
                     name="fc:miniapp"
-                    content='{"version":"next","imageUrl":"https://neptuneos-scratch-game.vercel.app/og-image.png","button":{"title":"Scratch and Win","action":{"type":"launch_frame","url":"https://neptuneos-scratch-game.vercel.app","splashImageUrl":"https://neptuneos-scratch-game.vercel.app/splash.png","splashBackgroundColor":"#0a1628"}}}'
+                    content='{"version":"1","imageUrl":"https://neptuneos-scratch-game.vercel.app/og-image.png","button":{"title":"Scratch and Win","action":{"type":"launch_frame","name":"The Scratch Game","url":"https://neptuneos-scratch-game.vercel.app","splashImageUrl":"https://neptuneos-scratch-game.vercel.app/splash.png","splashBackgroundColor":"#0a1628"}}}'
                 />
 
                 <link rel="icon" href="/icon.png" type="image/png" />
