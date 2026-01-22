@@ -12,7 +12,10 @@ export const metadata: Metadata = {
     openGraph: {
         title: 'The Scratch Game',
         description: 'Free scratch card game on Base. Play, compete, and win the NFT!',
-        images: ['/og-image.png'],
+        images: ['https://neptuneos-scratch-game.vercel.app/og-image.png'],
+    },
+    other: {
+        'base:app_id': 'f0bf111f81bd086f034ac7f4f7',
     },
 }
 
