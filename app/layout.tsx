@@ -15,7 +15,7 @@ export const metadata: Metadata = {
         images: ['https://neptuneos-scratch-game.vercel.app/og-image.png'],
     },
     other: {
-        'base:app_id': 'f0bf111f81bd086f034ac7f4f7',
+        'base:app_id': '69611181b8395f034ac21f57',
     },
 }
 
