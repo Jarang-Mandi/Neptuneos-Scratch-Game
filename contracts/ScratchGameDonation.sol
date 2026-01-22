@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.31;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
@@ -11,6 +12,8 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * @dev Supporters donate $1 USDC to get Supporter badge and FCFS free NFT mint
  */
 contract ScratchGameDonation is Ownable, ReentrancyGuard {
+    using SafeERC20 for IERC20;
+    
     // USDC on Base Mainnet
     IERC20 public constant USDC = IERC20(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913);
     
@@ -36,10 +39,9 @@ contract ScratchGameDonation is Ownable, ReentrancyGuard {
      */
     function donate() external nonReentrant {
         require(!isSupporter[msg.sender], "Already a supporter");
-        require(
-            USDC.transferFrom(msg.sender, address(this), DONATION_AMOUNT),
-            "USDC transfer failed"
-        );
+        
+        // Use SafeERC20 for safer transfers
+        USDC.safeTransferFrom(msg.sender, address(this), DONATION_AMOUNT);
         
         isSupporter[msg.sender] = true;
         donatedAt[msg.sender] = block.timestamp;
@@ -72,14 +74,18 @@ contract ScratchGameDonation is Ownable, ReentrancyGuard {
         view 
         returns (address[] memory) 
     {
+        require(offset <= supporters.length, "Offset out of bounds");
+        
         uint256 end = offset + limit;
         if (end > supporters.length) {
             end = supporters.length;
         }
         
-        address[] memory result = new address[](end - offset);
-        for (uint256 i = offset; i < end; i++) {
-            result[i - offset] = supporters[i];
+        uint256 resultLength = end - offset;
+        address[] memory result = new address[](resultLength);
+        
+        for (uint256 i = 0; i < resultLength; i++) {
+            result[i] = supporters[offset + i];
         }
         return result;
     }
@@ -90,7 +96,9 @@ contract ScratchGameDonation is Ownable, ReentrancyGuard {
     function withdraw() external onlyOwner nonReentrant {
         uint256 balance = USDC.balanceOf(address(this));
         require(balance > 0, "No USDC to withdraw");
-        require(USDC.transfer(owner(), balance), "Withdraw failed");
+        
+        // Use SafeERC20 for safer transfers
+        USDC.safeTransfer(owner(), balance);
         
         emit Withdrawn(owner(), balance);
     }

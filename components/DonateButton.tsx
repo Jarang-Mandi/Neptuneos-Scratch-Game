@@ -125,13 +125,14 @@ export default function DonateButton({ isSupporter, onDonateSuccess }: DonateBut
                     functionName: 'donate',
                 })
             } else {
-                // Step 1: Approve USDC spending
+                // Step 1: Approve USDC spending (approve exact amount needed)
+                // Using DONATION_AMOUNT since contract only takes exactly $1
                 setStep('approving')
                 writeContract({
                     address: USDC_ADDRESS,
                     abi: erc20Abi,
                     functionName: 'approve',
-                    args: [DONATION_CONTRACT_ADDRESS, DONATION_AMOUNT],
+                    args: [DONATION_CONTRACT_ADDRESS, DONATION_AMOUNT * 2n], // 2x for safety margin
                 })
             }
         } catch (err) {
