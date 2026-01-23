@@ -78,7 +78,7 @@ export default function InlineLeaderboard({ refreshTrigger = 0 }: InlineLeaderbo
                     No entries yet. Be the first to play!
                 </p>
             ) : (
-                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
                     <table style={{
                         width: '100%',
                         borderCollapse: 'collapse',
@@ -93,7 +93,7 @@ export default function InlineLeaderboard({ refreshTrigger = 0 }: InlineLeaderbo
                             </tr>
                         </thead>
                         <tbody>
-                            {entries.slice(0, 10).map((entry, idx) => (
+                            {entries.map((entry, idx) => (
                                 <tr key={entry.wallet} style={{
                                     borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
                                     background: idx < 3 ? 'rgba(88, 216, 255, 0.05)' : 'transparent',
@@ -138,15 +138,6 @@ export default function InlineLeaderboard({ refreshTrigger = 0 }: InlineLeaderbo
                 </div>
             )}
 
-            {/* Footer */}
-            <p style={{
-                fontSize: '11px',
-                color: '#666',
-                marginTop: '15px',
-                textAlign: 'center'
-            }}>
-                Top 350 players get GTD WL! 🎁
-            </p>
         </div>
     )
 }
