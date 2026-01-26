@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Redis } from '@upstash/redis'
 import { Ratelimit } from '@upstash/ratelimit'
 
-// Point values per level
+// Point values per level (Updated: Easy:3, Medium:5, Hard:10)
 const LEVEL_POINTS: Record<string, number> = {
-    easy: 1,
-    medium: 2,
-    hard: 3
+    easy: 3,
+    medium: 5,
+    hard: 10
 }
+
+// Daily win limit
+const DAILY_WIN_LIMIT = 10
 
 // Initialize Redis client
 const redis = Redis.fromEnv()
@@ -31,12 +34,26 @@ function isValidWallet(wallet: string): boolean {
     return /^0x[a-fA-F0-9]{40}$/.test(wallet)
 }
 
+// Get current date string for daily reset (UTC)
+function getTodayDateString(): string {
+    return new Date().toISOString().split('T')[0]
+}
+
 interface PlayerStats {
     wallet: string
     easyWins: number
     mediumWins: number
     hardWins: number
     isSupporter: boolean
+    // New fields for quest system
+    supporterBonusClaimed?: boolean
+    lastDailyLogin?: number
+    dailyLoginPoints?: number
+    referralCode?: string
+    referredBy?: string
+    referralCount?: number
+    dailyWinCount?: number
+    dailyWinDate?: string
 }
 
 // Cache for leaderboard (10 seconds)
@@ -183,16 +200,43 @@ export async function POST(request: NextRequest) {
         }
 
         const key = `player:${walletLower}`
+        const today = getTodayDateString()
 
         // Get existing player data or create new
         const existing = await redis.hgetall(key)
+
+        // Check and reset daily win count if new day
+        let currentDailyWins = Number(existing?.dailyWinCount || 0)
+        const lastWinDate = String(existing?.dailyWinDate || '')
+
+        if (lastWinDate !== today) {
+            // New day, reset counter
+            currentDailyWins = 0
+        }
+
+        // Check daily win limit (10 wins per day)
+        if (currentDailyWins >= DAILY_WIN_LIMIT) {
+            return NextResponse.json({
+                error: 'Daily win limit reached! Come back tomorrow.',
+                dailyWinsRemaining: 0,
+                limitReached: true
+            }, { status: 429 })
+        }
 
         const player: PlayerStats = {
             wallet: walletLower,
             easyWins: Number(existing?.easyWins || 0),
             mediumWins: Number(existing?.mediumWins || 0),
             hardWins: Number(existing?.hardWins || 0),
-            isSupporter: Boolean(existing?.isSupporter || false)
+            isSupporter: Boolean(existing?.isSupporter || false),
+            supporterBonusClaimed: Boolean(existing?.supporterBonusClaimed || false),
+            dailyWinCount: currentDailyWins + 1,
+            dailyWinDate: today,
+            referralCode: String(existing?.referralCode || ''),
+            referredBy: String(existing?.referredBy || ''),
+            referralCount: Number(existing?.referralCount || 0),
+            lastDailyLogin: Number(existing?.lastDailyLogin || 0),
+            dailyLoginPoints: Number(existing?.dailyLoginPoints || 0)
         }
 
         // Increment wins for the level
@@ -202,28 +246,37 @@ export async function POST(request: NextRequest) {
 
         if (isSupporter) player.isSupporter = true
 
-        // Save to Redis
+        // Save to Redis with all fields
         await redis.hset(key, {
             wallet: player.wallet,
             easyWins: player.easyWins,
             mediumWins: player.mediumWins,
             hardWins: player.hardWins,
-            isSupporter: player.isSupporter
+            isSupporter: player.isSupporter,
+            supporterBonusClaimed: player.supporterBonusClaimed,
+            dailyWinCount: player.dailyWinCount,
+            dailyWinDate: player.dailyWinDate,
+            referralCode: player.referralCode,
+            referredBy: player.referredBy,
+            referralCount: player.referralCount,
+            lastDailyLogin: player.lastDailyLogin,
+            dailyLoginPoints: player.dailyLoginPoints
         })
 
         // Invalidate cache
         leaderboardCache = null
 
-        // Calculate new total points
-        const totalPoints =
+        // Calculate new total points (game points only)
+        const gamePoints =
             player.easyWins * LEVEL_POINTS.easy +
             player.mediumWins * LEVEL_POINTS.medium +
             player.hardWins * LEVEL_POINTS.hard
 
         return NextResponse.json({
             success: true,
-            totalPoints,
+            totalPoints: gamePoints,
             pointsEarned: LEVEL_POINTS[level],
+            dailyWinsRemaining: DAILY_WIN_LIMIT - player.dailyWinCount!,
             remaining // Show remaining rate limit
         })
     } catch (error) {

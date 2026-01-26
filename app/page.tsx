@@ -7,12 +7,18 @@ import Navbar from '@/components/Navbar'
 import ScratchGame from '@/components/ScratchGame'
 import DonateButton from '@/components/DonateButton'
 import InlineLeaderboard from '@/components/InlineLeaderboard'
+import BottomNav from '@/components/BottomNav'
+import QuestList from '@/components/QuestList'
+import ProfileTab from '@/components/ProfileTab'
 import { DONATION_CONTRACT_ADDRESS } from '@/lib/wagmi'
+import { sdk } from '@farcaster/miniapp-sdk'
 
 // Contract ABI for checking supporter status
 const donationAbi = parseAbi([
     'function isSupporter(address) view returns (bool)',
 ])
+
+type TabType = 'game' | 'board' | 'profile'
 
 export default function Home() {
     const { address, isConnected } = useAccount()
@@ -20,7 +26,61 @@ export default function Home() {
     const [stats, setStats] = useState({ wins: 0, losses: 0, points: 0 })
     const [leaderboardRefresh, setLeaderboardRefresh] = useState(0)
     const [isMusicPlaying, setIsMusicPlaying] = useState(false)
+    const [activeTab, setActiveTab] = useState<TabType>('game')
+    const [farcasterUser, setFarcasterUser] = useState<{ fid?: number; username?: string } | null>(null)
     const bgmRef = useRef<HTMLAudioElement>(null)
+
+    // Get Farcaster context
+    useEffect(() => {
+        const initFarcaster = async () => {
+            try {
+                const context = await sdk.context
+                if (context?.user) {
+                    setFarcasterUser({
+                        fid: context.user.fid,
+                        username: context.user.username
+                    })
+                }
+            } catch (e) {
+                // Not in Farcaster context
+            }
+        }
+        initFarcaster()
+    }, [])
+
+    // Check for referral code in URL
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search)
+        const refCode = urlParams.get('ref')
+        if (refCode && address) {
+            // Store referral code to apply later
+            localStorage.setItem('pendingReferral', refCode)
+        }
+    }, [address])
+
+    // Apply pending referral when wallet connects
+    useEffect(() => {
+        const applyReferral = async () => {
+            const pendingRef = localStorage.getItem('pendingReferral')
+            if (pendingRef && address) {
+                try {
+                    const res = await fetch('/api/quest/referral', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ wallet: address, referralCode: pendingRef })
+                    })
+                    if (res.ok) {
+                        localStorage.removeItem('pendingReferral')
+                    }
+                } catch (e) {
+                    console.error('Failed to apply referral:', e)
+                }
+            }
+        }
+        if (address) {
+            applyReferral()
+        }
+    }, [address])
 
     // Read supporter status from smart contract
     const { data: isSupporterOnChain } = useReadContract({
@@ -77,7 +137,7 @@ export default function Home() {
     }, [isMusicPlaying])
 
     const handleWin = useCallback(async (level: string) => {
-        const pointsEarned = level === 'easy' ? 1 : level === 'medium' ? 2 : 3
+        const pointsEarned = level === 'easy' ? 3 : level === 'medium' ? 5 : 10
         setStats(prev => ({
             ...prev,
             wins: prev.wins + 1,
@@ -87,7 +147,7 @@ export default function Home() {
         // Record win to backend
         if (isConnected && address) {
             try {
-                await fetch('/api/leaderboard', {
+                const res = await fetch('/api/leaderboard', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -96,6 +156,12 @@ export default function Home() {
                         isSupporter
                     })
                 })
+                const data = await res.json()
+
+                if (data.limitReached) {
+                    alert('Daily win limit reached! Come back tomorrow.')
+                }
+
                 // Refresh leaderboard
                 setLeaderboardRefresh(prev => prev + 1)
             } catch (error) {
@@ -125,6 +191,120 @@ export default function Home() {
         }
     }, [address])
 
+    const handleTabChange = useCallback((tab: TabType) => {
+        setActiveTab(tab)
+    }, [])
+
+    const handlePointsUpdate = useCallback(() => {
+        setLeaderboardRefresh(prev => prev + 1)
+    }, [])
+
+    // Render content based on active tab
+    const renderTabContent = () => {
+        switch (activeTab) {
+            case 'game':
+                return (
+                    <>
+                        {/* Wallet Connection Required Notice */}
+                        {!isConnected && (
+                            <div style={{
+                                textAlign: 'center',
+                                padding: '30px 20px',
+                                marginBottom: '20px',
+                                background: 'rgba(88, 216, 255, 0.1)',
+                                borderRadius: '12px',
+                                border: '2px solid rgba(88, 216, 255, 0.3)',
+                            }}>
+                                <h2 style={{ color: '#58d8ff', marginBottom: '10px' }}>🔐 Wallet Required</h2>
+                                <p style={{ color: '#aaa', marginBottom: '15px' }}>
+                                    Connect your wallet to play and track your score on the leaderboard
+                                </p>
+                                <p style={{ fontSize: '12px', color: '#666' }}>
+                                    Click "Connect Wallet" in the navbar above ☝️
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Connected User Section */}
+                        {isConnected && (
+                            <>
+                                {/* Donation Section */}
+                                <div style={{
+                                    textAlign: 'center',
+                                    marginBottom: '15px',
+                                    padding: '15px',
+                                    background: 'rgba(0, 0, 0, 0.2)',
+                                    borderRadius: '8px',
+                                }}>
+                                    <DonateButton
+                                        isSupporter={isSupporter}
+                                        onDonateSuccess={handleDonateSuccess}
+                                    />
+                                </div>
+
+                                {/* Game Stats */}
+                                {(stats.wins > 0 || stats.losses > 0) && (
+                                    <div style={{
+                                        textAlign: 'center',
+                                        marginBottom: '10px',
+                                        fontSize: '14px',
+                                        color: '#aaa'
+                                    }}>
+                                        🎮 Session: {stats.wins}W / {stats.losses}L | 🏆 {stats.points} pts
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        {/* Main Game - Only show if wallet connected */}
+                        {isConnected ? (
+                            <ScratchGame
+                                onWin={handleWin}
+                                onLose={handleLose}
+                            />
+                        ) : (
+                            <div style={{
+                                textAlign: 'center',
+                                padding: '50px 20px',
+                                opacity: 0.3,
+                                pointerEvents: 'none',
+                            }}>
+                                <h1>Scratch Game</h1>
+                                <p style={{ color: '#666' }}>Game locked - connect wallet to play</p>
+                            </div>
+                        )}
+                    </>
+                )
+
+            case 'board':
+                return (
+                    <>
+                        {/* Inline Leaderboard */}
+                        <InlineLeaderboard refreshTrigger={leaderboardRefresh} />
+
+                        {/* Quest List */}
+                        <QuestList
+                            wallet={address || null}
+                            isSupporter={isSupporter}
+                            onPointsUpdate={handlePointsUpdate}
+                        />
+                    </>
+                )
+
+            case 'profile':
+                return (
+                    <ProfileTab
+                        wallet={address || null}
+                        fid={farcasterUser?.fid}
+                        username={farcasterUser?.username}
+                    />
+                )
+
+            default:
+                return null
+        }
+    }
+
     return (
         <>
             {/* Background Music */}
@@ -136,79 +316,12 @@ export default function Home() {
                 isMusicPlaying={isMusicPlaying}
             />
 
-            <main>
-                {/* Wallet Connection Required Notice */}
-                {!isConnected && (
-                    <div style={{
-                        textAlign: 'center',
-                        padding: '30px 20px',
-                        marginBottom: '20px',
-                        background: 'rgba(88, 216, 255, 0.1)',
-                        borderRadius: '12px',
-                        border: '2px solid rgba(88, 216, 255, 0.3)',
-                    }}>
-                        <h2 style={{ color: '#58d8ff', marginBottom: '10px' }}>🔐 Wallet Required</h2>
-                        <p style={{ color: '#aaa', marginBottom: '15px' }}>
-                            Connect your wallet to play and track your score on the leaderboard
-                        </p>
-                        <p style={{ fontSize: '12px', color: '#666' }}>
-                            Click "Connect Wallet" in the navbar above ☝️
-                        </p>
-                    </div>
-                )}
-
-                {/* Connected User Section */}
-                {isConnected && (
-                    <>
-                        {/* Donation Section */}
-                        <div style={{
-                            textAlign: 'center',
-                            marginBottom: '15px',
-                            padding: '15px',
-                            background: 'rgba(0, 0, 0, 0.2)',
-                            borderRadius: '8px',
-                        }}>
-                            <DonateButton
-                                isSupporter={isSupporter}
-                                onDonateSuccess={handleDonateSuccess}
-                            />
-                        </div>
-
-                        {/* Game Stats */}
-                        {(stats.wins > 0 || stats.losses > 0) && (
-                            <div style={{
-                                textAlign: 'center',
-                                marginBottom: '10px',
-                                fontSize: '14px',
-                                color: '#aaa'
-                            }}>
-                                🎮 Session: {stats.wins}W / {stats.losses}L | 🏆 {stats.points} pts
-                            </div>
-                        )}
-                    </>
-                )}
-
-                {/* Main Game - Only show if wallet connected */}
-                {isConnected ? (
-                    <ScratchGame
-                        onWin={handleWin}
-                        onLose={handleLose}
-                    />
-                ) : (
-                    <div style={{
-                        textAlign: 'center',
-                        padding: '50px 20px',
-                        opacity: 0.3,
-                        pointerEvents: 'none',
-                    }}>
-                        <h1>Scratch Game</h1>
-                        <p style={{ color: '#666' }}>Game locked - connect wallet to play</p>
-                    </div>
-                )}
-
-                {/* Inline Leaderboard - Always visible */}
-                <InlineLeaderboard refreshTrigger={leaderboardRefresh} />
+            <main style={{ paddingBottom: '80px' }}>
+                {renderTabContent()}
             </main>
+
+            {/* Bottom Navigation */}
+            <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
         </>
     )
 }
