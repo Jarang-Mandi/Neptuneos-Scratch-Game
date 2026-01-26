@@ -214,9 +214,6 @@ export default function DonateButton({ isSupporter, onDonateSuccess }: DonateBut
             >
                 {buttonText}
             </button>
-            <p style={{ fontSize: '11px', color: '#888', marginTop: '5px' }}>
-                Unlock Supporter perks and FCFS free NFT mint
-            </p>
         </div>
     )
 }
