@@ -30,11 +30,11 @@ export default function RootLayout({
                 {/* Farcaster Mini App Embed - must have stringified JSON */}
                 <meta
                     name="fc:frame"
-                    content='{"version":"1","imageUrl":"https://neptuneos-scratch-game.vercel.app/og-image.png","button":{"title":"Scratch and Win","action":{"type":"launch_frame","name":"The Scratch Game","url":"https://neptuneos-scratch-game.vercel.app","splashImageUrl":"https://neptuneos-scratch-game.vercel.app/splash.png","splashBackgroundColor":"#0a1628"}}}'
+                    content='{"version":"1","imageUrl":"https://neptuneos-scratch-game.vercel.app/og-image.png?v=2","button":{"title":"Scratch and Win","action":{"type":"launch_frame","name":"The Scratch Game","url":"https://neptuneos-scratch-game.vercel.app","splashImageUrl":"https://neptuneos-scratch-game.vercel.app/splash.png?v=2","splashBackgroundColor":"#0a1628"}}}'
                 />
                 <meta
                     name="fc:miniapp"
-                    content='{"version":"1","imageUrl":"https://neptuneos-scratch-game.vercel.app/og-image.png","button":{"title":"Scratch and Win","action":{"type":"launch_frame","name":"The Scratch Game","url":"https://neptuneos-scratch-game.vercel.app","splashImageUrl":"https://neptuneos-scratch-game.vercel.app/splash.png","splashBackgroundColor":"#0a1628"}}}'
+                    content='{"version":"1","imageUrl":"https://neptuneos-scratch-game.vercel.app/og-image.png?v=2","button":{"title":"Scratch and Win","action":{"type":"launch_frame","name":"The Scratch Game","url":"https://neptuneos-scratch-game.vercel.app","splashImageUrl":"https://neptuneos-scratch-game.vercel.app/splash.png?v=2","splashBackgroundColor":"#0a1628"}}}'
                 />
 
                 <link rel="icon" href="/icon.png" type="image/png" />
