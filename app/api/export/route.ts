@@ -50,7 +50,8 @@ export async function GET(request: NextRequest) {
                 const easyWins = Number(player.easyWins || 0)
                 const mediumWins = Number(player.mediumWins || 0)
                 const hardWins = Number(player.hardWins || 0)
-                const totalPoints = easyWins * 1 + mediumWins * 2 + hardWins * 3
+                // Updated points: Easy:3, Medium:5, Hard:10
+                const totalPoints = easyWins * 3 + mediumWins * 5 + hardWins * 10
 
                 players.push({
                     wallet: String(player.wallet),

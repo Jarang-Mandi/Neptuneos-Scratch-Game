@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Redis } from '@upstash/redis'
+import { Ratelimit } from '@upstash/ratelimit'
 
-// In-memory storage for game records (replace with Vercel Postgres in production)
-interface GameRecord {
-    wallet: string
-    level: string
-    won: boolean
-    timestamp: number
+const redis = Redis.fromEnv()
+
+// Rate limiter: 10 requests per minute per wallet
+const ratelimit = new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(10, '60 s'),
+    analytics: true,
+})
+
+// Wallet address validation
+function isValidWallet(wallet: string): boolean {
+    return /^0x[a-fA-F0-9]{40}$/.test(wallet)
 }
-
-const gameRecords: GameRecord[] = []
 
 // Record a game result
 export async function POST(request: NextRequest) {
@@ -16,60 +22,89 @@ export async function POST(request: NextRequest) {
         const body = await request.json()
         const { wallet, level, won } = body
 
-        if (!wallet || !level || typeof won !== 'boolean') {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+        // Validate wallet
+        if (!wallet || !isValidWallet(wallet)) {
+            return NextResponse.json({ error: 'Invalid wallet address' }, { status: 400 })
         }
 
-        if (!['easy', 'medium', 'hard'].includes(level)) {
+        if (!level || !['easy', 'medium', 'hard'].includes(level)) {
             return NextResponse.json({ error: 'Invalid level' }, { status: 400 })
         }
 
-        // Add record
-        gameRecords.push({
-            wallet: wallet.toLowerCase(),
-            level,
-            won,
-            timestamp: Date.now()
-        })
-
-        // If won, update leaderboard
-        if (won) {
-            await fetch(new URL('/api/leaderboard', request.url).toString(), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ wallet, level })
-            })
+        if (typeof won !== 'boolean') {
+            return NextResponse.json({ error: 'Invalid won status' }, { status: 400 })
         }
 
-        return NextResponse.json({ success: true })
+        const walletLower = wallet.toLowerCase()
+
+        // Rate limit by wallet
+        const { success } = await ratelimit.limit(`game-record:${walletLower}`)
+        if (!success) {
+            return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+        }
+
+        // If won, update leaderboard (which handles all win logic)
+        if (won) {
+            try {
+                const leaderboardRes = await fetch(new URL('/api/leaderboard', request.url).toString(), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ wallet: walletLower, level })
+                })
+
+                const leaderboardData = await leaderboardRes.json()
+
+                if (leaderboardData.limitReached) {
+                    return NextResponse.json({
+                        success: false,
+                        error: 'Daily win limit reached!',
+                        limitReached: true
+                    }, { status: 429 })
+                }
+
+                return NextResponse.json({
+                    success: true,
+                    pointsEarned: leaderboardData.pointsEarned,
+                    dailyWinsRemaining: leaderboardData.dailyWinsRemaining
+                })
+            } catch (error) {
+                console.error('Failed to update leaderboard:', error)
+                return NextResponse.json({ error: 'Failed to record win' }, { status: 500 })
+            }
+        }
+
+        // Loss - just acknowledge
+        return NextResponse.json({ success: true, recorded: 'loss' })
     } catch (error) {
+        console.error('Game record error:', error)
         return NextResponse.json({ error: 'Server error' }, { status: 500 })
     }
 }
 
-// Get player stats
+// Get player stats from profile API
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const wallet = searchParams.get('wallet')
 
-    if (!wallet) {
-        return NextResponse.json({ error: 'Wallet required' }, { status: 400 })
+    if (!wallet || !isValidWallet(wallet)) {
+        return NextResponse.json({ error: 'Invalid wallet' }, { status: 400 })
     }
 
-    const playerGames = gameRecords.filter(g => g.wallet.toLowerCase() === wallet.toLowerCase())
+    // Redirect to profile API for consistent data
+    try {
+        const profileRes = await fetch(new URL(`/api/profile?wallet=${wallet}`, request.url).toString())
+        const profileData = await profileRes.json()
 
-    const stats = {
-        easy: { wins: 0, total: 0 },
-        medium: { wins: 0, total: 0 },
-        hard: { wins: 0, total: 0 }
+        return NextResponse.json({
+            wallet: wallet.toLowerCase(),
+            stats: {
+                easy: { wins: profileData.stats?.easyWins || 0 },
+                medium: { wins: profileData.stats?.mediumWins || 0 },
+                hard: { wins: profileData.stats?.hardWins || 0 }
+            },
+            dailyWinsRemaining: profileData.dailyWinsRemaining || 10
+        })
+    } catch (error) {
+        return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 })
     }
-
-    playerGames.forEach(game => {
-        if (stats[game.level as keyof typeof stats]) {
-            stats[game.level as keyof typeof stats].total++
-            if (game.won) stats[game.level as keyof typeof stats].wins++
-        }
-    })
-
-    return NextResponse.json({ wallet, stats })
 }
