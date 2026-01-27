@@ -302,7 +302,7 @@ export default function Home() {
 
             case 'board':
                 return (
-                    <>
+                    <div className="container" style={{ marginTop: '20px' }}>
                         {/* Inline Leaderboard */}
                         <InlineLeaderboard refreshTrigger={leaderboardRefresh} />
 
@@ -312,17 +312,19 @@ export default function Home() {
                             isSupporter={isSupporter}
                             onPointsUpdate={handlePointsUpdate}
                         />
-                    </>
+                    </div>
                 )
 
             case 'profile':
                 return (
-                    <ProfileTab
-                        wallet={address || null}
-                        fid={farcasterUser?.fid}
-                        username={farcasterUser?.username}
-                        pfpUrl={farcasterUser?.pfpUrl}
-                    />
+                    <div className="container" style={{ marginTop: '20px' }}>
+                        <ProfileTab
+                            wallet={address || null}
+                            fid={farcasterUser?.fid}
+                            username={farcasterUser?.username}
+                            pfpUrl={farcasterUser?.pfpUrl}
+                        />
+                    </div>
                 )
 
             default:
