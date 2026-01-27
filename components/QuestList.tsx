@@ -272,7 +272,7 @@ export default function QuestList({ wallet, isSupporter, onPointsUpdate }: Quest
                     </button>
                 ) : (
                     <span style={{ color: '#888', fontSize: '12px' }}>
-                        {isSupporter ? 'Pending' : 'Donate $1'}
+                        {isSupporter ? 'Pending' : 'Get Supporter'}
                     </span>
                 )}
             </div>
