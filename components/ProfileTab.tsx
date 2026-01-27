@@ -108,7 +108,7 @@ export default function ProfileTab({ wallet, fid, username, pfpUrl }: ProfileTab
     }
 
     return (
-        <div style={{ padding: '20px' }}>
+        <div style={{ padding: '20px', maxWidth: '340px', margin: '0 auto' }}>
             {/* User Info */}
             <div style={{
                 background: 'rgba(0, 0, 0, 0.3)',

@@ -158,6 +158,8 @@ export default function QuestList({ wallet, isSupporter, onPointsUpdate }: Quest
                 padding: '20px',
                 marginTop: '15px',
                 border: '1px solid rgba(88, 216, 255, 0.2)',
+                maxWidth: '340px',
+                margin: '15px auto 0',
             }}>
                 <h3 style={{ color: '#58d8ff', marginBottom: '10px', fontSize: '16px' }}>
                     📋 Quests
@@ -176,6 +178,8 @@ export default function QuestList({ wallet, isSupporter, onPointsUpdate }: Quest
             padding: '15px',
             marginTop: '15px',
             border: '1px solid rgba(88, 216, 255, 0.2)',
+            maxWidth: '340px',
+            margin: '15px auto 0',
         }}>
             <h3 style={{ color: '#58d8ff', marginBottom: '15px', fontSize: '16px', textAlign: 'center' }}>
                 📋 Quests
