@@ -9,6 +9,11 @@ const LEVEL_POINTS: Record<string, number> = {
     hard: 10
 }
 
+// Quest point values
+const DAILY_LOGIN_POINTS = 2
+const SUPPORTER_BONUS_POINTS = 50
+const REFERRAL_POINTS = 10
+
 // Daily win limit
 const DAILY_WIN_LIMIT = 10
 
@@ -120,26 +125,43 @@ export async function GET(request: NextRequest) {
                         easyWins: Number((player as any).easyWins || 0),
                         mediumWins: Number((player as any).mediumWins || 0),
                         hardWins: Number((player as any).hardWins || 0),
-                        isSupporter: Boolean((player as any).isSupporter || false)
+                        isSupporter: Boolean((player as any).isSupporter || false),
+                        supporterBonusClaimed: Boolean((player as any).supporterBonusClaimed || false),
+                        dailyLoginPoints: Number((player as any).dailyLoginPoints || 0),
+                        referralCount: Number((player as any).referralCount || 0)
                     })
                 }
             }
         }
 
-        // Calculate total points for each player and sort
+        // Calculate total points for each player (game + quest points) and sort
         const entries = players
             .filter(p => p.wallet) // Remove invalid entries
-            .map(player => ({
-                wallet: player.wallet,
-                totalPoints:
+            .map(player => {
+                // Game points from wins
+                const gamePoints =
                     player.easyWins * LEVEL_POINTS.easy +
                     player.mediumWins * LEVEL_POINTS.medium +
-                    player.hardWins * LEVEL_POINTS.hard,
-                easyWins: player.easyWins,
-                mediumWins: player.mediumWins,
-                hardWins: player.hardWins,
-                isSupporter: player.isSupporter
-            }))
+                    player.hardWins * LEVEL_POINTS.hard
+
+                // Quest points
+                const dailyLoginPts = player.dailyLoginPoints || 0
+                const supporterPts = player.supporterBonusClaimed ? SUPPORTER_BONUS_POINTS : 0
+                const referralPts = (player.referralCount || 0) * REFERRAL_POINTS
+
+                // Total = game + all quest points
+                const totalPoints = gamePoints + dailyLoginPts + supporterPts + referralPts
+
+                return {
+                    wallet: player.wallet,
+                    totalPoints,
+                    gamePoints,
+                    easyWins: player.easyWins,
+                    mediumWins: player.mediumWins,
+                    hardWins: player.hardWins,
+                    isSupporter: player.isSupporter
+                }
+            })
             .sort((a, b) => b.totalPoints - a.totalPoints)
             .slice(0, 100)
             .map((entry, idx) => ({
