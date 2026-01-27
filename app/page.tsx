@@ -337,7 +337,7 @@ export default function Home() {
                 isMusicPlaying={isMusicPlaying}
             />
 
-            <main style={{ paddingBottom: '80px' }}>
+            <main style={{ paddingBottom: '80px', width: '100%', maxWidth: '600px' }}>
                 {renderTabContent()}
             </main>
 
