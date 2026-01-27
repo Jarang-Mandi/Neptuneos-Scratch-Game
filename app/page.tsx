@@ -302,7 +302,7 @@ export default function Home() {
 
             case 'board':
                 return (
-                    <div className="container" style={{ marginTop: '20px' }}>
+                    <div style={{ padding: '0 15px' }}>
                         {/* Inline Leaderboard */}
                         <InlineLeaderboard refreshTrigger={leaderboardRefresh} />
 
@@ -317,7 +317,7 @@ export default function Home() {
 
             case 'profile':
                 return (
-                    <div className="container" style={{ marginTop: '20px' }}>
+                    <div style={{ padding: '0 15px' }}>
                         <ProfileTab
                             wallet={address || null}
                             fid={farcasterUser?.fid}
