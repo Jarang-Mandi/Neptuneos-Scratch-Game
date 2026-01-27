@@ -46,8 +46,8 @@ export default function InlineLeaderboard({ refreshTrigger = 0 }: InlineLeaderbo
             padding: '20px',
             marginTop: '20px',
             border: '1px solid rgba(88, 216, 255, 0.2)',
-            maxWidth: '340px',
-            margin: '20px auto 0',
+            width: '100%',
+            boxSizing: 'border-box',
         }}>
             <h3 style={{
                 color: '#58d8ff',
