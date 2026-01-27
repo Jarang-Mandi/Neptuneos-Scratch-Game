@@ -94,14 +94,16 @@ export default function Navbar({ onMusicToggle, isMusicPlaying = false }: Navbar
                                 width: '100%',
                                 padding: '12px',
                                 marginBottom: '8px',
-                                background: 'rgba(255, 255, 255, 0.05)',
-                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                background: 'linear-gradient(145deg, #00c6ff, #0072ff)',
+                                border: 'none',
                                 borderRadius: '8px',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '10px',
                                 fontSize: '14px',
+                                color: 'white',
+                                boxShadow: '0 4px #005bb5'
                             }}
                         >
                             {isMusicPlaying ? '🔊' : '🔇'}
@@ -117,14 +119,16 @@ export default function Navbar({ onMusicToggle, isMusicPlaying = false }: Navbar
                             style={{
                                 width: '100%',
                                 padding: '12px',
-                                background: 'rgba(255, 255, 255, 0.05)',
-                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                background: 'linear-gradient(145deg, #00c6ff, #0072ff)',
+                                border: 'none',
                                 borderRadius: '8px',
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '10px',
                                 fontSize: '14px',
+                                color: 'white',
+                                boxShadow: '0 4px #005bb5'
                             }}
                         >
                             {isLightMode ? '🌙' : '☀️'}

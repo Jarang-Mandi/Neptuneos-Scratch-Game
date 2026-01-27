@@ -40,13 +40,7 @@ export default function InlineLeaderboard({ refreshTrigger = 0 }: InlineLeaderbo
     }
 
     return (
-        <div style={{
-            background: 'rgba(0, 0, 0, 0.3)',
-            borderRadius: '12px',
-            padding: '20px',
-            marginTop: '20px',
-            border: '1px solid rgba(88, 216, 255, 0.2)',
-        }}>
+        <div className="glass-panel" style={{ marginTop: '20px' }}>
             <h3 style={{
                 color: '#58d8ff',
                 marginBottom: '15px',

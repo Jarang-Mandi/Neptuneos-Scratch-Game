@@ -230,14 +230,7 @@ export default function Home() {
                         {isConnected && (
                             <>
                                 {/* Donation Section */}
-                                <div style={{
-                                    textAlign: 'center',
-                                    marginBottom: '15px',
-                                    padding: '15px',
-                                    background: 'rgba(0, 0, 0, 0.2)',
-                                    borderRadius: '8px',
-                                    border: '1px solid rgba(88, 216, 255, 0.2)',
-                                }}>
+                                <div className="glass-panel" style={{ textAlign: 'center' }}>
                                     <DonateButton
                                         isSupporter={isSupporter}
                                         onDonateSuccess={handleDonateSuccess}
@@ -266,18 +259,14 @@ export default function Home() {
                                     onLose={handleLose}
                                 />
                                 {/* Points Info */}
-                                <div style={{
+                                <div className="glass-panel" style={{
                                     display: 'flex',
                                     justifyContent: 'center',
                                     gap: '12px',
                                     marginTop: '20px',
                                     fontSize: '12px',
                                     color: '#888',
-                                    background: 'rgba(0,0,0,0.2)',
-                                    padding: '8px 15px',
-                                    borderRadius: '8px',
                                     flexWrap: 'wrap',
-                                    border: '1px solid rgba(88, 216, 255, 0.2)',
                                 }}>
                                     <span>🟢 Easy: 3pt</span>
                                     <span>🟡 Medium: 5pt</span>

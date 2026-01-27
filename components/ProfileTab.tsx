@@ -110,14 +110,7 @@ export default function ProfileTab({ wallet, fid, username, pfpUrl }: ProfileTab
     return (
         <div style={{ marginTop: '20px' }}>
             {/* User Info */}
-            <div style={{
-                background: 'rgba(0, 0, 0, 0.3)',
-                borderRadius: '12px',
-                padding: '20px',
-                marginBottom: '15px',
-                border: '1px solid rgba(88, 216, 255, 0.2)',
-                textAlign: 'center'
-            }}>
+            <div className="glass-panel" style={{ textAlign: 'center' }}>
                 {/* Profile Picture */}
                 <div style={{
                     width: '80px',
@@ -190,13 +183,7 @@ export default function ProfileTab({ wallet, fid, username, pfpUrl }: ProfileTab
             </div>
 
             {/* Points Breakdown */}
-            <div style={{
-                background: 'rgba(0, 0, 0, 0.3)',
-                borderRadius: '12px',
-                padding: '15px',
-                marginBottom: '15px',
-                border: '1px solid rgba(88, 216, 255, 0.2)',
-            }}>
+            <div className="glass-panel">
                 <h3 style={{
                     color: '#58d8ff',
                     marginBottom: '15px',
@@ -240,13 +227,7 @@ export default function ProfileTab({ wallet, fid, username, pfpUrl }: ProfileTab
             </div>
 
             {/* Game Stats */}
-            <div style={{
-                background: 'rgba(0, 0, 0, 0.3)',
-                borderRadius: '12px',
-                padding: '15px',
-                marginBottom: '15px',
-                border: '1px solid rgba(88, 216, 255, 0.2)',
-            }}>
+            <div className="glass-panel">
                 <h3 style={{
                     color: '#58d8ff',
                     marginBottom: '15px',

@@ -1,3 +1,18 @@
+.glass-panel {
+  background: rgba(0, 0, 0, 0.2); 
+  border-radius: 12px;
+  border: 1px solid rgba(88, 216, 255, 0.2);
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+body.light-mode .glass-panel {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); 
+  color: #333;
+}
+
 /* Navbar */
 .navbar {
   position: fixed;
