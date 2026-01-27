@@ -40,8 +40,10 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
                         key={tab.id}
                         onClick={() => onTabChange(tab.id)}
                         style={{
-                            background: isActive ? 'rgba(88, 216, 255, 0.15)' : 'transparent',
-                            border: '1px solid rgba(88, 216, 255, 0.3)',
+                            background: isActive
+                                ? 'linear-gradient(145deg, #00c6ff, #0072ff)'
+                                : 'transparent',
+                            border: isActive ? 'none' : '1px solid rgba(88, 216, 255, 0.3)',
                             padding: isActive ? '10px 20px' : '10px',
                             cursor: 'pointer',
                             display: 'flex',
@@ -53,13 +55,14 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
                             opacity: isActive ? 1 : 0.6,
                             borderRadius: '12px',
                             minWidth: isActive ? '100px' : '50px',
+                            boxShadow: isActive ? '0 4px #005bb5' : 'none',
                         }}
                         aria-label={tab.label}
                     >
                         <span style={{
                             fontSize: '22px',
                             filter: isActive
-                                ? 'drop-shadow(0 0 5px rgba(88, 216, 255, 0.6))'
+                                ? 'none'
                                 : 'grayscale(100%)',
                             transition: 'filter 0.3s ease',
                         }}>
@@ -69,7 +72,7 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
                         <span style={{
                             fontSize: '14px',
                             fontWeight: 'bold',
-                            color: '#58d8ff',
+                            color: '#fff',
                             display: isActive ? 'block' : 'none',
                             whiteSpace: 'nowrap',
                             animation: isActive ? 'fadeIn 0.3s forwards' : 'none'

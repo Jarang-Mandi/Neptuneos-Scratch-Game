@@ -54,7 +54,7 @@ export default function Navbar({ onMusicToggle, isMusicPlaying = false }: Navbar
                 <button
                     onClick={() => setMenuOpen(!menuOpen)}
                     style={{
-                        background: 'rgba(255, 255, 255, 0.1)',
+                        background: 'linear-gradient(145deg, #00c6ff, #0072ff)',
                         border: 'none',
                         borderRadius: '8px',
                         padding: '8px 12px',
@@ -63,6 +63,8 @@ export default function Navbar({ onMusicToggle, isMusicPlaying = false }: Navbar
                         display: 'flex',
                         alignItems: 'center',
                         gap: '6px',
+                        boxShadow: '0 4px #005bb5',
+                        color: 'white'
                     }}
                 >
                     ☰

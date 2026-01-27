@@ -314,11 +314,12 @@ export default function QuestList({ wallet, isSupporter, onPointsUpdate }: Quest
                         style={{
                             padding: '6px 12px',
                             fontSize: '12px',
-                            background: 'linear-gradient(145deg, #8b5cf6, #6d28d9)',
+                            background: 'linear-gradient(145deg, #00c6ff, #0072ff)',
                             border: 'none',
                             borderRadius: '6px',
                             color: '#fff',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            boxShadow: '0 2px #005bb5'
                         }}
                     >
                         Share
