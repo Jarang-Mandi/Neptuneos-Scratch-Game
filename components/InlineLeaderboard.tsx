@@ -40,16 +40,13 @@ export default function InlineLeaderboard({ refreshTrigger = 0 }: InlineLeaderbo
     }
 
     return (
-        <div
-            className="tab-box"
-            style={{
-                background: 'rgba(0, 0, 0, 0.3)',
-                borderRadius: '12px',
-                padding: '20px',
-                marginTop: '20px',
-                border: '1px solid rgba(88, 216, 255, 0.2)',
-            }}
-        >
+        <div style={{
+            background: 'rgba(0, 0, 0, 0.3)',
+            borderRadius: '12px',
+            padding: '20px',
+            marginTop: '20px',
+            border: '1px solid rgba(88, 216, 255, 0.2)',
+        }}>
             <h3 style={{
                 color: '#58d8ff',
                 marginBottom: '15px',

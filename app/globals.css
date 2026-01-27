@@ -73,14 +73,6 @@ body {
   position:relative;
 }
 
-/* Full-width tab content boxes */
-.tab-box {
-  width: 100%;
-  max-width: calc(100vw - 40px);
-  margin: 0 auto;
-  box-sizing: border-box;
-}
-
 .main-logo {
   width: 120px;
   max-width: 40vw;

@@ -243,6 +243,25 @@ export default function Home() {
                                     />
                                 </div>
 
+                                {/* Points Info */}
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    gap: '12px',
+                                    marginBottom: '12px',
+                                    fontSize: '12px',
+                                    color: '#888',
+                                    background: 'rgba(0,0,0,0.2)',
+                                    padding: '8px 15px',
+                                    borderRadius: '8px',
+                                    flexWrap: 'wrap'
+                                }}>
+                                    <span>🟢 Easy: 3pt</span>
+                                    <span>🟡 Medium: 5pt</span>
+                                    <span>🔴 Hard: 10pt</span>
+                                    <span style={{ color: '#58d8ff' }}>📊 Limit: 10 wins/day</span>
+                                </div>
+
                                 {/* Game Stats */}
                                 {(stats.wins > 0 || stats.losses > 0) && (
                                     <div style={{
@@ -259,33 +278,10 @@ export default function Home() {
 
                         {/* Main Game - Only show if wallet connected */}
                         {isConnected ? (
-                            <>
-                                <ScratchGame
-                                    onWin={handleWin}
-                                    onLose={handleLose}
-                                />
-
-                                {/* Points Info - Below game box */}
-                                <div style={{
-                                    display: 'flex',
-                                    justifyContent: 'center',
-                                    gap: '10px',
-                                    marginTop: '12px',
-                                    fontSize: '11px',
-                                    color: '#888',
-                                    background: 'rgba(0,0,0,0.3)',
-                                    padding: '10px 15px',
-                                    borderRadius: '8px',
-                                    flexWrap: 'wrap',
-                                    maxWidth: '320px',
-                                    margin: '12px auto 0'
-                                }}>
-                                    <span>🟢 Easy: 3pt</span>
-                                    <span>🟡 Medium: 5pt</span>
-                                    <span>🔴 Hard: 10pt</span>
-                                    <span style={{ color: '#58d8ff' }}>📊 Limit: 10 wins/day</span>
-                                </div>
-                            </>
+                            <ScratchGame
+                                onWin={handleWin}
+                                onLose={handleLose}
+                            />
                         ) : (
                             <div style={{
                                 textAlign: 'center',
@@ -302,7 +298,7 @@ export default function Home() {
 
             case 'board':
                 return (
-                    <div style={{ padding: '0 15px' }}>
+                    <>
                         {/* Inline Leaderboard */}
                         <InlineLeaderboard refreshTrigger={leaderboardRefresh} />
 
@@ -312,19 +308,17 @@ export default function Home() {
                             isSupporter={isSupporter}
                             onPointsUpdate={handlePointsUpdate}
                         />
-                    </div>
+                    </>
                 )
 
             case 'profile':
                 return (
-                    <div style={{ padding: '0 15px' }}>
-                        <ProfileTab
-                            wallet={address || null}
-                            fid={farcasterUser?.fid}
-                            username={farcasterUser?.username}
-                            pfpUrl={farcasterUser?.pfpUrl}
-                        />
-                    </div>
+                    <ProfileTab
+                        wallet={address || null}
+                        fid={farcasterUser?.fid}
+                        username={farcasterUser?.username}
+                        pfpUrl={farcasterUser?.pfpUrl}
+                    />
                 )
 
             default:
