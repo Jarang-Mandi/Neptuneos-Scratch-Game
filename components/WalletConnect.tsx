@@ -143,7 +143,7 @@ export default function WalletConnect() {
                         fontSize: '10px',
                         color: farcasterUser ? '#8a63d2' : chainId === base.id ? '#58d8ff' : '#ff6b6b',
                     }}>
-                        {farcasterUser ? `FID: ${farcasterUser.fid}` : getNetworkName()}
+                        {getNetworkName()}
                     </span>
                 </div>
 
@@ -152,14 +152,19 @@ export default function WalletConnect() {
                     onClick={() => disconnect()}
                     style={{
                         fontSize: '11px',
-                        padding: '4px 8px',
-                        background: 'transparent',
-                        border: '1px solid rgba(255, 107, 107, 0.4)',
-                        color: '#ff6b6b',
+                        padding: '6px 10px',
+                        background: 'linear-gradient(145deg, #ff4d4d, #cc0000)',
+                        border: 'none',
+                        color: 'white',
                         borderRadius: '6px',
                         cursor: 'pointer',
-                        marginLeft: '4px',
+                        marginLeft: '8px',
+                        boxShadow: '0 2px 4px rgba(204, 0, 0, 0.4)',
+                        textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                        transition: 'transform 0.1s'
                     }}
+                    onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
+                    onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
                 >
                     ✕
                 </button>

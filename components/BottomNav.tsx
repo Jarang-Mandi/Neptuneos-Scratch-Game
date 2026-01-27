@@ -51,7 +51,7 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
                             gap: '8px',
                             transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
                             opacity: isActive ? 1 : 0.6,
-                            borderRadius: '30px',
+                            borderRadius: '12px',
                             minWidth: isActive ? '100px' : '50px',
                         }}
                         aria-label={tab.label}
