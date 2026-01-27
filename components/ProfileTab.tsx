@@ -6,6 +6,7 @@ interface ProfileTabProps {
     wallet: string | null
     fid?: number | null
     username?: string | null
+    pfpUrl?: string | null
 }
 
 interface ProfileData {
@@ -30,7 +31,7 @@ interface ProfileData {
     dailyWinsRemaining: number
 }
 
-export default function ProfileTab({ wallet, fid, username }: ProfileTabProps) {
+export default function ProfileTab({ wallet, fid, username, pfpUrl }: ProfileTabProps) {
     const [profile, setProfile] = useState<ProfileData | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [message, setMessage] = useState('')
@@ -117,9 +118,39 @@ export default function ProfileTab({ wallet, fid, username }: ProfileTabProps) {
                 border: '1px solid rgba(88, 216, 255, 0.2)',
                 textAlign: 'center'
             }}>
-                <p style={{ fontSize: '40px', marginBottom: '10px' }}>
-                    {profile?.isSupporter ? '⭐' : '👤'}
-                </p>
+                {/* Profile Picture */}
+                <div style={{
+                    width: '80px',
+                    height: '80px',
+                    borderRadius: '50%',
+                    margin: '0 auto 12px auto',
+                    background: 'rgba(88, 216, 255, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                    border: profile?.isSupporter ? '3px solid #ffd700' : '2px solid rgba(88, 216, 255, 0.4)'
+                }}>
+                    {pfpUrl ? (
+                        <img
+                            src={pfpUrl}
+                            alt="Profile"
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover'
+                            }}
+                            onError={(e) => {
+                                // Hide image on error and show fallback
+                                (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                        />
+                    ) : (
+                        <span style={{ fontSize: '40px' }}>
+                            {profile?.isSupporter ? '⭐' : '👤'}
+                        </span>
+                    )}
+                </div>
 
                 {username && (
                     <p style={{ color: '#58d8ff', fontWeight: 'bold', fontSize: '18px' }}>

@@ -56,20 +56,6 @@ export default function InlineLeaderboard({ refreshTrigger = 0 }: InlineLeaderbo
                 🏆 Leaderboard
             </h3>
 
-            {/* Points Info */}
-            <div style={{
-                display: 'flex',
-                justifyContent: 'center',
-                gap: '15px',
-                marginBottom: '15px',
-                fontSize: '11px',
-                color: '#888'
-            }}>
-                <span>🟢 Easy: 1pt</span>
-                <span>🟡 Medium: 2pt</span>
-                <span>🔴 Hard: 3pt</span>
-            </div>
-
             {/* Leaderboard Table */}
             {isLoading ? (
                 <p style={{ textAlign: 'center', color: '#888' }}>Loading...</p>
