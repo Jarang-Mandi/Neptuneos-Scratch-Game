@@ -41,7 +41,7 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
                         onClick={() => onTabChange(tab.id)}
                         style={{
                             background: isActive ? 'rgba(88, 216, 255, 0.15)' : 'transparent',
-                            border: 'none',
+                            border: '1px solid rgba(88, 216, 255, 0.3)',
                             padding: isActive ? '10px 20px' : '10px',
                             cursor: 'pointer',
                             display: 'flex',

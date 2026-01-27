@@ -236,6 +236,7 @@ export default function Home() {
                                     padding: '15px',
                                     background: 'rgba(0, 0, 0, 0.2)',
                                     borderRadius: '8px',
+                                    border: '1px solid rgba(88, 216, 255, 0.2)',
                                 }}>
                                     <DonateButton
                                         isSupporter={isSupporter}
@@ -275,7 +276,8 @@ export default function Home() {
                                     background: 'rgba(0,0,0,0.2)',
                                     padding: '8px 15px',
                                     borderRadius: '8px',
-                                    flexWrap: 'wrap'
+                                    flexWrap: 'wrap',
+                                    border: '1px solid rgba(88, 216, 255, 0.2)',
                                 }}>
                                     <span>🟢 Easy: 3pt</span>
                                     <span>🟡 Medium: 5pt</span>
