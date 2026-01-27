@@ -243,25 +243,6 @@ export default function Home() {
                                     />
                                 </div>
 
-                                {/* Points Info */}
-                                <div style={{
-                                    display: 'flex',
-                                    justifyContent: 'center',
-                                    gap: '12px',
-                                    marginBottom: '12px',
-                                    fontSize: '12px',
-                                    color: '#888',
-                                    background: 'rgba(0,0,0,0.2)',
-                                    padding: '8px 15px',
-                                    borderRadius: '8px',
-                                    flexWrap: 'wrap'
-                                }}>
-                                    <span>🟢 Easy: 3pt</span>
-                                    <span>🟡 Medium: 5pt</span>
-                                    <span>🔴 Hard: 10pt</span>
-                                    <span style={{ color: '#58d8ff' }}>📊 Limit: 10 wins/day</span>
-                                </div>
-
                                 {/* Game Stats */}
                                 {(stats.wins > 0 || stats.losses > 0) && (
                                     <div style={{
@@ -278,10 +259,30 @@ export default function Home() {
 
                         {/* Main Game - Only show if wallet connected */}
                         {isConnected ? (
-                            <ScratchGame
-                                onWin={handleWin}
-                                onLose={handleLose}
-                            />
+                            <>
+                                <ScratchGame
+                                    onWin={handleWin}
+                                    onLose={handleLose}
+                                />
+                                {/* Points Info */}
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    gap: '12px',
+                                    marginTop: '20px',
+                                    fontSize: '12px',
+                                    color: '#888',
+                                    background: 'rgba(0,0,0,0.2)',
+                                    padding: '8px 15px',
+                                    borderRadius: '8px',
+                                    flexWrap: 'wrap'
+                                }}>
+                                    <span>🟢 Easy: 3pt</span>
+                                    <span>🟡 Medium: 5pt</span>
+                                    <span>🔴 Hard: 10pt</span>
+                                    <span style={{ color: '#58d8ff' }}>📊 Limit: 10 wins/day</span>
+                                </div>
+                            </>
                         ) : (
                             <div style={{
                                 textAlign: 'center',

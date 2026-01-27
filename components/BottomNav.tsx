@@ -37,37 +37,39 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
                     key={tab.id}
                     onClick={() => onTabChange(tab.id)}
                     style={{
-                        background: 'transparent',
+                        background: activeTab === tab.id ? 'rgba(88, 216, 255, 0.15)' : 'transparent',
                         border: 'none',
-                        padding: '10px 30px',
+                        padding: '8px 20px',
                         cursor: 'pointer',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
+                        justifyContent: 'center',
                         gap: '4px',
-                        transition: 'transform 0.2s, opacity 0.2s',
-                        opacity: activeTab === tab.id ? 1 : 0.5,
-                        transform: activeTab === tab.id ? 'scale(1.1)' : 'scale(1)',
+                        transition: 'all 0.3s ease',
+                        opacity: activeTab === tab.id ? 1 : 0.6,
+                        borderRadius: '16px',
+                        minWidth: '70px',
+                        transform: activeTab === tab.id ? 'translateY(-2px)' : 'none',
                     }}
                     aria-label={tab.label}
                 >
                     <span style={{
-                        fontSize: '24px',
+                        fontSize: '22px',
                         filter: activeTab === tab.id
-                            ? 'drop-shadow(0 0 8px rgba(88, 216, 255, 0.8))'
+                            ? 'drop-shadow(0 0 5px rgba(88, 216, 255, 0.6))'
                             : 'none',
+                        transition: 'filter 0.3s ease',
                     }}>
                         {tab.icon}
                     </span>
-                    {activeTab === tab.id && (
-                        <div style={{
-                            width: '4px',
-                            height: '4px',
-                            borderRadius: '50%',
-                            background: '#58d8ff',
-                            marginTop: '2px',
-                        }} />
-                    )}
+                    <span style={{
+                        fontSize: '11px',
+                        fontWeight: activeTab === tab.id ? 'bold' : 'normal',
+                        color: activeTab === tab.id ? '#58d8ff' : '#aaa',
+                    }}>
+                        {tab.label}
+                    </span>
                 </button>
             ))}
         </nav>
