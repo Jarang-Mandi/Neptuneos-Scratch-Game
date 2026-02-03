@@ -170,12 +170,8 @@ export default function QuestList({ wallet, isSupporter, onPointsUpdate }: Quest
     }
 
     return (
-        <div style={{
-            background: 'rgba(0, 0, 0, 0.3)',
-            borderRadius: '12px',
-            padding: '15px',
-            marginTop: '15px',
-            border: '1px solid rgba(88, 216, 255, 0.2)',
+        <div className="glass-panel" style={{
+            marginTop: '15px'
         }}>
             <h3 style={{ color: '#58d8ff', marginBottom: '15px', fontSize: '16px', textAlign: 'center' }}>
                 📋 Quests

@@ -1,7 +1,6 @@
 .glass-panel {
   background: rgba(0, 0, 0, 0.2); 
   border-radius: 12px;
-  border: 1px solid rgba(88, 216, 255, 0.2);
   padding: 15px;
   margin-bottom: 15px;
 }
@@ -86,7 +85,6 @@ body {
   background-color: rgba(0, 0, 0, 0.39);
   box-shadow: 0 0 18px rgba(0,0,0,.4);
   position:relative;
-  border: 1px solid rgba(88, 216, 255, 0.2);
 }
 
 .main-logo {

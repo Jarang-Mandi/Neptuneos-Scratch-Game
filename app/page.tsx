@@ -229,14 +229,6 @@ export default function Home() {
                         {/* Connected User Section */}
                         {isConnected && (
                             <>
-                                {/* Donation Section */}
-                                <div className="glass-panel" style={{ textAlign: 'center' }}>
-                                    <DonateButton
-                                        isSupporter={isSupporter}
-                                        onDonateSuccess={handleDonateSuccess}
-                                    />
-                                </div>
-
                                 {/* Game Stats */}
                                 {(stats.wins > 0 || stats.losses > 0) && (
                                     <div style={{
@@ -290,9 +282,19 @@ export default function Home() {
 
             case 'board':
                 return (
-                    <>
+                    <div className="container" style={{ marginTop: '20px' }}>
                         {/* Inline Leaderboard */}
                         <InlineLeaderboard refreshTrigger={leaderboardRefresh} />
+
+                        {/* Donation Section */}
+                        {isConnected && (
+                            <div className="glass-panel" style={{ textAlign: 'center' }}>
+                                <DonateButton
+                                    isSupporter={isSupporter}
+                                    onDonateSuccess={handleDonateSuccess}
+                                />
+                            </div>
+                        )}
 
                         {/* Quest List */}
                         <QuestList
@@ -300,17 +302,19 @@ export default function Home() {
                             isSupporter={isSupporter}
                             onPointsUpdate={handlePointsUpdate}
                         />
-                    </>
+                    </div>
                 )
 
             case 'profile':
                 return (
-                    <ProfileTab
-                        wallet={address || null}
-                        fid={farcasterUser?.fid}
-                        username={farcasterUser?.username}
-                        pfpUrl={farcasterUser?.pfpUrl}
-                    />
+                    <div className="container" style={{ marginTop: '20px' }}>
+                        <ProfileTab
+                            wallet={address || null}
+                            fid={farcasterUser?.fid}
+                            username={farcasterUser?.username}
+                            pfpUrl={farcasterUser?.pfpUrl}
+                        />
+                    </div>
                 )
 
             default:
@@ -329,7 +333,7 @@ export default function Home() {
                 isMusicPlaying={isMusicPlaying}
             />
 
-            <main style={{ paddingBottom: '80px', width: '100%', maxWidth: '600px', padding: '0 20px' }}>
+            <main style={{ paddingBottom: '80px', width: '100%', maxWidth: '600px', padding: '20px 0', margin: '0 auto' }}>
                 {renderTabContent()}
             </main>
 
