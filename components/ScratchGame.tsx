@@ -19,6 +19,12 @@ interface ScratchGameProps {
     onLose?: (level: string) => void
 }
 
+const levelOptions = [
+    { value: 'easy', label: 'Easy', grid: '3×3', emoji: '🟢', bombs: 1 },
+    { value: 'medium', label: 'Medium', grid: '4×4', emoji: '🟡', bombs: 1 },
+    { value: 'hard', label: 'Hard', grid: '5×5', emoji: '🔴', bombs: 2 }
+]
+
 export default function ScratchGame({ onWin, onLose }: ScratchGameProps) {
     const [level, setLevel] = useState<string>('easy')
     const [gameActive, setGameActive] = useState(false)
@@ -31,15 +37,29 @@ export default function ScratchGame({ onWin, onLose }: ScratchGameProps) {
     const [showRules, setShowRules] = useState(true)
     const [isLightMode, setIsLightMode] = useState(false)
     const [gameKey, setGameKey] = useState(0) // Key to force re-render of cells
+    const [dropdownOpen, setDropdownOpen] = useState(false)
 
     const bgmRef = useRef<HTMLAudioElement>(null)
     const winSoundRef = useRef<HTMLAudioElement>(null)
     const loseSoundRef = useRef<HTMLAudioElement>(null)
+    const dropdownRef = useRef<HTMLDivElement>(null)
 
     const levelConfig = validLevels[level]
     const gSize = levelConfig.size
     const totalBombs = levelConfig.bombs
     const totCells = gSize * gSize
+    const currentLevel = levelOptions.find(l => l.value === level)!
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+                setDropdownOpen(false)
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [])
 
     // Initialize theme from localStorage
     useEffect(() => {
@@ -208,18 +228,93 @@ export default function ScratchGame({ onWin, onLose }: ScratchGameProps) {
             <div className="container">
                 <h1>Scratch Game</h1>
 
-                <div id="difficulty">
-                    <select
-                        id="level"
-                        value={level}
-                        onChange={(e) => setLevel(e.target.value)}
-                        disabled={gameActive}
-                    >
-                        <option value="easy">Easy (3x3)</option>
-                        <option value="medium">Medium (4x4)</option>
-                        <option value="hard">Hard (5x5)</option>
-                    </select>
-                    <button id="startBtn" onClick={startGame} disabled={gameActive && canRestart}>
+                <div id="difficulty" style={{ display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {/* Custom Dropdown */}
+                    <div ref={dropdownRef} style={{ position: 'relative' }}>
+                        <button
+                            onClick={() => !gameActive && setDropdownOpen(!dropdownOpen)}
+                            disabled={gameActive}
+                            style={{
+                                padding: '10px 20px',
+                                minWidth: '160px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: '12px',
+                                background: 'linear-gradient(145deg, #00c6ff, #0072ff)',
+                                border: 'none',
+                                borderRadius: '8px',
+                                color: '#fff',
+                                fontWeight: 'bold',
+                                fontSize: '16px',
+                                cursor: gameActive ? 'not-allowed' : 'pointer',
+                                opacity: gameActive ? 0.6 : 1,
+                                boxShadow: '0 4px #005bb5',
+                                transition: 'all 0.15s ease-in-out'
+                            }}
+                        >
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span>{currentLevel.emoji}</span>
+                                <span>{currentLevel.label}</span>
+                                <span style={{ fontSize: '12px', opacity: 0.8 }}>({currentLevel.grid})</span>
+                            </span>
+                            <span style={{ fontSize: '10px', transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>▼</span>
+                        </button>
+
+                        {/* Dropdown Menu */}
+                        {dropdownOpen && (
+                            <div style={{
+                                position: 'absolute',
+                                top: '100%',
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                minWidth: '200px',
+                                marginTop: '8px',
+                                background: 'linear-gradient(145deg, #0f2027, #203a43)',
+                                border: 'none',
+                                borderRadius: '8px',
+                                overflow: 'hidden',
+                                zIndex: 100,
+                                padding: '8px'
+                            }}>
+                                {levelOptions.map((opt, idx) => (
+                                    <button
+                                        key={opt.value}
+                                        onClick={() => {
+                                            setLevel(opt.value)
+                                            setDropdownOpen(false)
+                                        }}
+                                        style={{
+                                            width: 'calc(100% - 0px)',
+                                            padding: '10px 12px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                            background: level === opt.value ? 'linear-gradient(145deg, #00c6ff, #0072ff)' : 'transparent',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            marginBottom: idx < levelOptions.length - 1 ? '4px' : '0',
+                                            color: '#fff',
+                                            cursor: 'pointer',
+                                            textAlign: 'left',
+                                            boxShadow: level === opt.value ? '0 4px #005bb5' : 'none',
+                                            fontWeight: 'bold',
+                                            fontSize: '14px'
+                                        }}
+                                    >
+                                        <span style={{ fontSize: '18px' }}>{opt.emoji}</span>
+                                        <div style={{ flex: 1 }}>
+                                            <div>{opt.label}</div>
+                                            <div style={{ fontSize: '11px', opacity: 0.7 }}>{opt.grid} • 💣×{opt.bombs}</div>
+                                        </div>
+                                        {level === opt.value && <span>✓</span>}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <button id="startBtn" onClick={startGame} disabled={gameActive && canRestart} style={{ height: '41px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {cells.length > 0 && !gameActive ? 'Play Again' : 'Play Game'}
                     </button>
                 </div>
