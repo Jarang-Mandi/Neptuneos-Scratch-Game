@@ -22,9 +22,10 @@ const donationAbi = parseAbi([
 interface DonateButtonProps {
     isSupporter: boolean
     onDonateSuccess?: () => void
+    getAuthHeaders?: () => Record<string, string>
 }
 
-export default function DonateButton({ isSupporter, onDonateSuccess }: DonateButtonProps) {
+export default function DonateButton({ isSupporter, onDonateSuccess, getAuthHeaders }: DonateButtonProps) {
     const { isConnected, address } = useAccount()
     const chainId = useChainId()
     const { switchChain } = useSwitchChain()

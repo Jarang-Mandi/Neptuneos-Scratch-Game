@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAccount, useConnect, useDisconnect, useChainId } from 'wagmi'
 import { base } from 'wagmi/chains'
 import { sdk } from '@farcaster/miniapp-sdk'
+import { sanitizeImageUrl, sanitizeDisplayText } from '@/lib/sanitize'
 
 interface FarcasterUser {
     fid: number
@@ -33,9 +34,9 @@ export default function WalletConnect() {
                     if (context?.user) {
                         setFarcasterUser({
                             fid: context.user.fid,
-                            username: context.user.username,
-                            displayName: context.user.displayName,
-                            pfpUrl: context.user.pfpUrl,
+                            username: sanitizeDisplayText(context.user.username, 30) || undefined,
+                            displayName: sanitizeDisplayText(context.user.displayName, 50) || undefined,
+                            pfpUrl: sanitizeImageUrl(context.user.pfpUrl) || undefined,
                         })
                     }
                 }
@@ -95,6 +96,7 @@ export default function WalletConnect() {
                     <img
                         src={farcasterUser.pfpUrl}
                         alt="Profile"
+                        referrerPolicy="no-referrer"
                         style={{
                             width: 28,
                             height: 28,

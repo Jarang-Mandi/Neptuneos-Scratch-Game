@@ -12,6 +12,8 @@ import QuestList from '@/components/QuestList'
 import ProfileTab from '@/components/ProfileTab'
 import { DONATION_CONTRACT_ADDRESS } from '@/lib/wagmi'
 import { sdk } from '@farcaster/miniapp-sdk'
+import { useAuth } from '@/lib/useAuth'
+import { sanitizeReferralCode, sanitizeImageUrl, sanitizeDisplayText } from '@/lib/sanitize'
 
 // Contract ABI for checking supporter status
 const donationAbi = parseAbi([
@@ -22,6 +24,7 @@ type TabType = 'game' | 'board' | 'profile'
 
 export default function Home() {
     const { address, isConnected } = useAccount()
+    const { isAuthenticated, isAuthenticating, authError, login, authFetch, getAuthHeaders } = useAuth()
     const [isSupporter, setIsSupporter] = useState(false)
     const [stats, setStats] = useState({ wins: 0, losses: 0, points: 0 })
     const [leaderboardRefresh, setLeaderboardRefresh] = useState(0)
@@ -30,7 +33,14 @@ export default function Home() {
     const [farcasterUser, setFarcasterUser] = useState<{ fid?: number; username?: string; pfpUrl?: string } | null>(null)
     const bgmRef = useRef<HTMLAudioElement>(null)
 
-    // Get Farcaster context
+    // Auto-login when wallet connects and not yet authenticated
+    useEffect(() => {
+        if (isConnected && address && !isAuthenticated && !isAuthenticating) {
+            login()
+        }
+    }, [isConnected, address, isAuthenticated, isAuthenticating, login])
+
+    // Get Farcaster context (sanitise untrusted external data)
     useEffect(() => {
         const initFarcaster = async () => {
             try {
@@ -38,8 +48,8 @@ export default function Home() {
                 if (context?.user) {
                     setFarcasterUser({
                         fid: context.user.fid,
-                        username: context.user.username,
-                        pfpUrl: context.user.pfpUrl
+                        username: sanitizeDisplayText(context.user.username, 30) || undefined,
+                        pfpUrl: sanitizeImageUrl(context.user.pfpUrl) || undefined
                     })
                 }
             } catch (e) {
@@ -49,23 +59,23 @@ export default function Home() {
         initFarcaster()
     }, [])
 
-    // Check for referral code in URL
+    // Check for referral code in URL — sanitise before storing
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search)
-        const refCode = urlParams.get('ref')
+        const refCode = sanitizeReferralCode(urlParams.get('ref'))
         if (refCode && address) {
-            // Store referral code to apply later
             localStorage.setItem('pendingReferral', refCode)
         }
     }, [address])
 
-    // Apply pending referral when wallet connects
+    // Apply pending referral when wallet connects AND authenticated
     useEffect(() => {
         const applyReferral = async () => {
-            const pendingRef = localStorage.getItem('pendingReferral')
-            if (pendingRef && address) {
+            const rawRef = localStorage.getItem('pendingReferral')
+            const pendingRef = sanitizeReferralCode(rawRef)
+            if (pendingRef && address && isAuthenticated) {
                 try {
-                    const res = await fetch('/api/quest/referral', {
+                    const res = await authFetch('/api/quest/referral', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ wallet: address, referralCode: pendingRef })
@@ -78,10 +88,10 @@ export default function Home() {
                 }
             }
         }
-        if (address) {
+        if (address && isAuthenticated) {
             applyReferral()
         }
-    }, [address])
+    }, [address, isAuthenticated, authFetch])
 
     // Read supporter status from smart contract
     const { data: isSupporterOnChain } = useReadContract({
@@ -137,39 +147,22 @@ export default function Home() {
         }
     }, [isMusicPlaying])
 
-    const handleWin = useCallback(async (level: string) => {
-        const pointsEarned = level === 'easy' ? 3 : level === 'medium' ? 5 : 10
+    // Win is already recorded server-side by /api/game/reveal
+    // This callback only updates local UI state
+    const handleWin = useCallback((level: string, pointsEarned?: number, dailyWinsRemaining?: number) => {
         setStats(prev => ({
             ...prev,
             wins: prev.wins + 1,
-            points: prev.points + pointsEarned
+            points: prev.points + (pointsEarned || 0)
         }))
 
-        // Record win to backend
-        if (isConnected && address) {
-            try {
-                const res = await fetch('/api/leaderboard', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        wallet: address,
-                        level,
-                        isSupporter
-                    })
-                })
-                const data = await res.json()
-
-                if (data.limitReached) {
-                    alert('Daily win limit reached! Come back tomorrow.')
-                }
-
-                // Refresh leaderboard
-                setLeaderboardRefresh(prev => prev + 1)
-            } catch (error) {
-                console.error('Failed to record win:', error)
-            }
+        if (dailyWinsRemaining !== undefined && dailyWinsRemaining <= 0) {
+            alert('Daily win limit reached! Come back tomorrow.')
         }
-    }, [isConnected, address, isSupporter])
+
+        // Refresh leaderboard (win already recorded server-side)
+        setLeaderboardRefresh(prev => prev + 1)
+    }, [])
 
     const handleLose = useCallback(() => {
         setStats(prev => ({ ...prev, losses: prev.losses + 1 }))
@@ -178,10 +171,10 @@ export default function Home() {
     const handleDonateSuccess = useCallback(async () => {
         setIsSupporter(true)
 
-        // Record supporter status to backend
-        if (address) {
+        // Record supporter status to backend (authenticated)
+        if (address && isAuthenticated) {
             try {
-                await fetch('/api/donate', {
+                await authFetch('/api/donate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ wallet: address })
@@ -190,7 +183,7 @@ export default function Home() {
                 console.error('Failed to record donation:', error)
             }
         }
-    }, [address])
+    }, [address, isAuthenticated, authFetch])
 
     const handleTabChange = useCallback((tab: TabType) => {
         setActiveTab(tab)
@@ -226,6 +219,56 @@ export default function Home() {
                             </div>
                         )}
 
+                        {/* Auth Status */}
+                        {isConnected && !isAuthenticated && (
+                            <div style={{
+                                textAlign: 'center',
+                                padding: '15px',
+                                marginBottom: '15px',
+                                background: 'rgba(255, 200, 50, 0.1)',
+                                borderRadius: '12px',
+                                border: '1px solid rgba(255, 200, 50, 0.3)',
+                            }}>
+                                {isAuthenticating ? (
+                                    <p style={{ color: '#ffc832', fontSize: '14px' }}>⏳ Please sign the message in your wallet to authenticate...</p>
+                                ) : authError ? (
+                                    <>
+                                        <p style={{ color: '#ff6b6b', fontSize: '13px', marginBottom: '8px' }}>❌ {authError}</p>
+                                        <button
+                                            onClick={() => login()}
+                                            style={{
+                                                padding: '8px 16px',
+                                                background: 'linear-gradient(145deg, #00c6ff, #0072ff)',
+                                                border: 'none',
+                                                borderRadius: '8px',
+                                                color: 'white',
+                                                cursor: 'pointer',
+                                                fontSize: '13px'
+                                            }}
+                                        >
+                                            🔑 Retry Sign-In
+                                        </button>
+                                    </>
+                                ) : (
+                                    <button
+                                        onClick={() => login()}
+                                        style={{
+                                            padding: '10px 20px',
+                                            background: 'linear-gradient(145deg, #00c6ff, #0072ff)',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            color: 'white',
+                                            cursor: 'pointer',
+                                            fontSize: '14px',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        🔑 Sign In to Play
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
                         {/* Connected User Section */}
                         {isConnected && (
                             <>
@@ -247,6 +290,8 @@ export default function Home() {
                         {isConnected ? (
                             <>
                                 <ScratchGame
+                                    wallet={address}
+                                    getAuthHeaders={getAuthHeaders}
                                     onWin={handleWin}
                                     onLose={handleLose}
                                 />
@@ -292,6 +337,7 @@ export default function Home() {
                                 <DonateButton
                                     isSupporter={isSupporter}
                                     onDonateSuccess={handleDonateSuccess}
+                                    getAuthHeaders={getAuthHeaders}
                                 />
                             </div>
                         )}
@@ -301,6 +347,7 @@ export default function Home() {
                             wallet={address || null}
                             isSupporter={isSupporter}
                             onPointsUpdate={handlePointsUpdate}
+                            getAuthHeaders={getAuthHeaders}
                         />
                     </div>
                 )

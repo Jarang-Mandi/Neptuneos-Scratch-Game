@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Redis } from '@upstash/redis'
 import { Ratelimit } from '@upstash/ratelimit'
+import { verifyAuthForWallet } from '@/lib/auth'
 
 // Referral constants
 const REFERRAL_POINTS = 10
@@ -84,6 +85,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid wallet' }, { status: 400 })
         }
 
+        // Verify session auth — only wallet owner can use referral
+        const auth = verifyAuthForWallet(request, wallet)
+        if (!auth.authenticated) {
+            return NextResponse.json({ error: auth.error }, { status: 401 })
+        }
+
         if (!referralCode || typeof referralCode !== 'string') {
             return NextResponse.json({ error: 'Invalid referral code' }, { status: 400 })
         }
@@ -126,16 +133,6 @@ export async function POST(request: NextRequest) {
         }
 
         const referrerKey = `player:${String(referrerWallet).toLowerCase()}`
-        const referrerData = await redis.hgetall(referrerKey)
-
-        // Check referrer hasn't exceeded max referrals
-        const currentReferrals = Number(referrerData?.referralCount || 0)
-        if (currentReferrals >= MAX_REFERRALS) {
-            return NextResponse.json({
-                success: false,
-                error: 'Referrer has reached maximum referrals'
-            }, { status: 400 })
-        }
 
         // Check referee has minimum wins (anti-abuse)
         const refereeWins = Number(refereeData?.easyWins || 0) +
@@ -151,17 +148,54 @@ export async function POST(request: NextRequest) {
             }, { status: 400 })
         }
 
-        // Register referral
-        // 1. Mark referee as referred
-        await redis.hset(refereeKey, {
-            referredBy: String(referrerWallet).toLowerCase(),
-            wallet: walletLower
-        })
+        /**
+         * Lua script: atomic referral registration across TWO player keys.
+         * Re-checks referredBy + referralCount inside the script to prevent
+         * TOCTOU races (the earlier checks are fast-fail only).
+         */
+        const REFERRAL_LUA = `
+local refereeKey = KEYS[1]
+local referrerKey = KEYS[2]
+local referrerWallet = ARGV[1]
+local maxReferrals = tonumber(ARGV[2])
 
-        // 2. Increment referrer's count
-        await redis.hset(referrerKey, {
-            referralCount: currentReferrals + 1
-        })
+local referredBy = redis.call('HGET', refereeKey, 'referredBy')
+if referredBy and referredBy ~= '' then
+  return 'ALREADY_REFERRED'
+end
+
+local referralCount = tonumber(redis.call('HGET', referrerKey, 'referralCount')) or 0
+if referralCount >= maxReferrals then
+  return 'MAX_REFERRALS'
+end
+
+redis.call('HSET', refereeKey, 'referredBy', referrerWallet)
+redis.call('HSET', referrerKey, 'referralCount', referralCount + 1)
+
+return 'OK:' .. (referralCount + 1)
+`
+
+        const result = await redis.eval(
+            REFERRAL_LUA,
+            [refereeKey, referrerKey],
+            [String(referrerWallet).toLowerCase(), MAX_REFERRALS]
+        ) as string
+
+        const resultStr = String(result)
+
+        if (resultStr === 'ALREADY_REFERRED') {
+            return NextResponse.json({
+                success: false,
+                error: 'You have already been referred!'
+            }, { status: 400 })
+        }
+
+        if (resultStr === 'MAX_REFERRALS') {
+            return NextResponse.json({
+                success: false,
+                error: 'Referrer has reached maximum referrals'
+            }, { status: 400 })
+        }
 
         return NextResponse.json({
             success: true,

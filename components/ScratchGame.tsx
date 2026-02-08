@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useEffect, useState, useCallback } from 'react'
+import { sanitizeDisplayText } from '@/lib/sanitize'
 
 const emojis = ["🍒", "⭐", "🍀", "🔔", "🥇", "🍉", "🍇", "🍎", "🎁", "🎉"]
 
@@ -15,7 +16,9 @@ const validLevels: ValidLevels = {
 }
 
 interface ScratchGameProps {
-    onWin?: (level: string) => void
+    wallet?: string
+    getAuthHeaders?: () => Record<string, string>
+    onWin?: (level: string, pointsEarned?: number, dailyWinsRemaining?: number) => void
     onLose?: (level: string) => void
 }
 
@@ -25,13 +28,11 @@ const levelOptions = [
     { value: 'hard', label: 'Hard', grid: '5×5', emoji: '🔴', bombs: 2 }
 ]
 
-export default function ScratchGame({ onWin, onLose }: ScratchGameProps) {
+export default function ScratchGame({ wallet, getAuthHeaders, onWin, onLose }: ScratchGameProps) {
     const [level, setLevel] = useState<string>('easy')
     const [gameActive, setGameActive] = useState(false)
     const [message, setMessage] = useState('')
     const [cells, setCells] = useState<{ emoji: string; revealed: boolean; isBomb: boolean }[]>([])
-    const [bombIdx, setBombIdx] = useState<number[]>([])
-    const [cellsRevealed, setCellsRevealed] = useState(0)
     const [canRestart, setCanRestart] = useState(true)
     const [isMuted, setIsMuted] = useState(false)
     const [showRules, setShowRules] = useState(true)
@@ -43,6 +44,12 @@ export default function ScratchGame({ onWin, onLose }: ScratchGameProps) {
     const winSoundRef = useRef<HTMLAudioElement>(null)
     const loseSoundRef = useRef<HTMLAudioElement>(null)
     const dropdownRef = useRef<HTMLDivElement>(null)
+
+    // Server-side game session refs (not state to avoid stale closures)
+    const gameIdRef = useRef<string | null>(null)
+    const gameTokenRef = useRef<string | null>(null)
+    const gameActiveRef = useRef(false)
+    const pendingRevealsRef = useRef<Set<number>>(new Set())
 
     const levelConfig = validLevels[level]
     const gSize = levelConfig.size
@@ -72,12 +79,13 @@ export default function ScratchGame({ onWin, onLose }: ScratchGameProps) {
 
     // Reset cells when level changes (fix for grid not updating after game end)
     useEffect(() => {
-        // Clear cells when level changes so grid updates to correct size
         setCells([])
-        setCellsRevealed(0)
         setMessage('')
         setGameActive(false)
-        setBombIdx([])
+        gameActiveRef.current = false
+        gameIdRef.current = null
+        gameTokenRef.current = null
+        pendingRevealsRef.current = new Set()
     }, [level])
 
     const toggleTheme = () => {
@@ -122,85 +130,131 @@ export default function ScratchGame({ onWin, onLose }: ScratchGameProps) {
         }
     }
 
-    const startGame = useCallback(() => {
-        if (!canRestart) return
+    const startGame = useCallback(async () => {
+        if (!canRestart || !wallet) return
         setCanRestart(false)
-        setTimeout(() => setCanRestart(true), 500)
 
-        // Increment gameKey to force all cells to re-mount with fresh state
-        setGameKey(prev => prev + 1)
+        try {
+            // Request new game session from server
+            const res = await fetch('/api/game/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders?.() },
+                body: JSON.stringify({ wallet, level })
+            })
 
-        // Generate bomb positions
-        const bombSet = new Set<number>()
-        while (bombSet.size < totalBombs) {
-            bombSet.add(Math.floor(Math.random() * totCells))
-        }
-        const newBombIdx = Array.from(bombSet)
-        setBombIdx(newBombIdx)
-
-        // Generate cells
-        const newCells = Array.from({ length: totCells }, (_, i) => ({
-            emoji: emojis[Math.floor(Math.random() * emojis.length)],
-            revealed: false,
-            isBomb: newBombIdx.includes(i)
-        }))
-        setCells(newCells)
-        setCellsRevealed(0)
-        setMessage('')
-        setGameActive(true)
-
-        // Play BGM
-        if (bgmRef.current) {
-            bgmRef.current.currentTime = 0
-            playBgm()
-        }
-    }, [canRestart, totalBombs, totCells, playBgm])
-
-    const finishGame = useCallback((win: boolean) => {
-        setGameActive(false)
-
-        // Reveal all cells
-        setCells(prev => prev.map((cell, i) => ({
-            ...cell,
-            revealed: true,
-            isBomb: bombIdx.includes(i)
-        })))
-
-        setMessage(win ? '🎉 You Win!' : '💥 NOOB! You Lose!')
-
-        if (bgmRef.current) bgmRef.current.pause()
-
-        if (!isMuted) {
-            const sound = win ? winSoundRef.current : loseSoundRef.current
-            sound?.play().catch(err => console.warn('Sound play failed:', err))
-        }
-
-        // Callback for tracking
-        if (win) {
-            onWin?.(level)
-        } else {
-            onLose?.(level)
-        }
-    }, [bombIdx, isMuted, level, onWin, onLose])
-
-    const revealCell = useCallback((idx: number) => {
-        if (!gameActive) return
-        if (cells[idx].revealed) return
-
-        const newCells = [...cells]
-        newCells[idx] = { ...newCells[idx], revealed: true }
-        setCells(newCells)
-
-        if (bombIdx.includes(idx)) {
-            finishGame(false)
-        } else {
-            const newRevealed = cellsRevealed + 1
-            setCellsRevealed(newRevealed)
-            if (newRevealed === totCells - totalBombs) {
-                finishGame(true)
+            if (!res.ok) {
+                const data = await res.json()
+                setMessage(sanitizeDisplayText(data.error, 120) || 'Failed to start game')
+                return
             }
+
+            const data = await res.json()
+
+            // Store server game session (refs to avoid stale closures)
+            gameIdRef.current = data.gameId
+            gameTokenRef.current = data.token
+            pendingRevealsRef.current = new Set()
+
+            // Force re-mount all cells
+            setGameKey(prev => prev + 1)
+
+            // Create cells with hidden content (server decides what's behind each cell)
+            const emptyCells = Array.from({ length: data.totalCells }, () => ({
+                emoji: '❓',
+                revealed: false,
+                isBomb: false
+            }))
+            setCells(emptyCells)
+            setMessage('')
+            setGameActive(true)
+            gameActiveRef.current = true
+
+            // Play BGM
+            if (bgmRef.current) {
+                bgmRef.current.currentTime = 0
+                playBgm()
+            }
+        } catch (error) {
+            console.error('Failed to start game:', error)
+            setMessage('Failed to start game. Try again.')
+        } finally {
+            setTimeout(() => setCanRestart(true), 500)
         }
-    }, [gameActive, cells, bombIdx, cellsRevealed, totCells, totalBombs, finishGame])
+    }, [canRestart, wallet, level, playBgm])
+
+    const revealCell = useCallback(async (idx: number) => {
+        // Use refs to avoid stale closure issues with async operations
+        if (!gameActiveRef.current) return
+        if (pendingRevealsRef.current.has(idx)) return
+        if (!gameIdRef.current || !gameTokenRef.current || !wallet) return
+
+        pendingRevealsRef.current.add(idx)
+
+        try {
+            // Ask server what's behind this cell
+            const res = await fetch('/api/game/reveal', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders?.() },
+                body: JSON.stringify({
+                    gameId: gameIdRef.current,
+                    token: gameTokenRef.current,
+                    wallet,
+                    cellIndex: idx
+                })
+            })
+
+            if (!res.ok) {
+                console.error('Reveal error:', (await res.json()).error)
+                return
+            }
+
+            const data = await res.json()
+
+            if (data.gameOver) {
+                // Game ended — server reveals entire board
+                gameActiveRef.current = false
+                setGameActive(false)
+
+                if (data.allCells) {
+                    setCells(data.allCells.map((c: { emoji: string; isBomb: boolean }) => ({
+                        emoji: c.isBomb ? '💣' : c.emoji,
+                        revealed: true,
+                        isBomb: c.isBomb
+                    })))
+                }
+
+                setMessage(data.won ? '🎉 You Win!' : '💥 NOOB! You Lose!')
+
+                if (bgmRef.current) bgmRef.current.pause()
+
+                if (!isMuted) {
+                    const sound = data.won ? winSoundRef.current : loseSoundRef.current
+                    sound?.play().catch(err => console.warn('Sound play failed:', err))
+                }
+
+                if (data.won) {
+                    onWin?.(level, data.pointsEarned, data.dailyWinsRemaining)
+                } else {
+                    onLose?.(level)
+                }
+            } else {
+                // Safe cell revealed, game continues
+                setCells(prev => {
+                    const newCells = [...prev]
+                    newCells[idx] = {
+                        emoji: data.cellResult.emoji,
+                        revealed: true,
+                        isBomb: false
+                    }
+                    return newCells
+                })
+            }
+        } catch (error) {
+            console.error('Reveal failed:', error)
+        } finally {
+            pendingRevealsRef.current.delete(idx)
+        }
+    }, [wallet, level, isMuted, onWin, onLose])
 
     const closeRules = () => {
         setShowRules(false)

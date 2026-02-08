@@ -16,18 +16,26 @@ function isValidWallet(wallet: string): boolean {
     return /^0x[a-fA-F0-9]{40}$/.test(wallet)
 }
 
-// Record a game result
+// DEPRECATED: Game results are now recorded via /api/game/reveal (server-side validation)
+// This endpoint is kept for backward compatibility but no longer processes wins.
 export async function POST(request: NextRequest) {
-    try {
-        const body = await request.json()
-        const { wallet, level, won } = body
+    return NextResponse.json(
+        { error: 'This endpoint is deprecated. Game results are now validated server-side via /api/game/start and /api/game/reveal.' },
+        { status: 410 }
+    )
+}
 
-        // Validate wallet
-        if (!wallet || !isValidWallet(wallet)) {
-            return NextResponse.json({ error: 'Invalid wallet address' }, { status: 400 })
-        }
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _legacyPost(_request: NextRequest) {
+    // Legacy code preserved for reference
+    const _wallet = ''
+    const _level = ''
+    const _won = false
+    if (!_wallet || !isValidWallet(_wallet)) {
+        //
+    }
 
-        if (!level || !['easy', 'medium', 'hard'].includes(level)) {
+    if (!_level || !['easy', 'medium', 'hard'].includes(_level)) {
             return NextResponse.json({ error: 'Invalid level' }, { status: 400 })
         }
 

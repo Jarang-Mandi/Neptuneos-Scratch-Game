@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Redis } from '@upstash/redis'
 import { Ratelimit } from '@upstash/ratelimit'
+import { verifyAuthForWallet } from '@/lib/auth'
 
 // Daily login reward points
 const DAILY_LOGIN_POINTS = 2
@@ -65,6 +66,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid wallet' }, { status: 400 })
         }
 
+        // Verify session auth — only wallet owner can claim
+        const auth = verifyAuthForWallet(request, wallet)
+        if (!auth.authenticated) {
+            return NextResponse.json({ error: auth.error }, { status: 401 })
+        }
+
         const walletLower = wallet.toLowerCase()
 
         // Rate limit
@@ -76,37 +83,67 @@ export async function POST(request: NextRequest) {
         const key = `player:${walletLower}`
         const now = Date.now()
 
-        // Get existing data
-        const existing = await redis.hgetall(key)
-        const lastLogin = Number(existing?.lastDailyLogin || 0)
+        /**
+         * Lua script: atomic cooldown-check + point award.
+         * Prevents double-claim if two requests arrive simultaneously.
+         */
+        const DAILY_LOGIN_LUA = `
+local key = KEYS[1]
+local now = tonumber(ARGV[1])
+local cooldown = tonumber(ARGV[2])
+local pointsToAdd = tonumber(ARGV[3])
+local walletLower = ARGV[4]
 
-        // Check cooldown (24 hours)
-        if ((now - lastLogin) < COOLDOWN_MS) {
-            const nextClaimTime = lastLogin + COOLDOWN_MS
+local lastLogin = tonumber(redis.call('HGET', key, 'lastDailyLogin')) or 0
+
+if (now - lastLogin) < cooldown then
+  local nextClaim = lastLogin + cooldown
+  return 'COOLDOWN:' .. nextClaim .. ':' .. (nextClaim - now)
+end
+
+local currentPoints = tonumber(redis.call('HGET', key, 'dailyLoginPoints')) or 0
+local newPoints = currentPoints + pointsToAdd
+
+redis.call('HSET', key, 'lastDailyLogin', now)
+redis.call('HSET', key, 'dailyLoginPoints', newPoints)
+
+local w = redis.call('HGET', key, 'wallet')
+if not w or w == '' then
+  redis.call('HSET', key, 'wallet', walletLower)
+end
+
+return 'OK:' .. newPoints .. ':' .. (now + cooldown)
+`
+
+        const result = await redis.eval(
+            DAILY_LOGIN_LUA,
+            [key],
+            [now, COOLDOWN_MS, DAILY_LOGIN_POINTS, walletLower]
+        ) as string
+
+        const resultStr = String(result)
+
+        if (resultStr.startsWith('COOLDOWN')) {
+            const parts = resultStr.split(':')
+            const nextClaimTime = parseInt(parts[1], 10)
+            const cooldownRemaining = parseInt(parts[2], 10)
             return NextResponse.json({
                 success: false,
                 error: 'Already claimed today! Come back later.',
                 nextClaimTime,
-                cooldownRemaining: nextClaimTime - now
+                cooldownRemaining
             }, { status: 400 })
         }
 
-        // Award points
-        const currentPoints = Number(existing?.dailyLoginPoints || 0)
-        const newPoints = currentPoints + DAILY_LOGIN_POINTS
-
-        // Update Redis
-        await redis.hset(key, {
-            lastDailyLogin: now,
-            dailyLoginPoints: newPoints,
-            wallet: walletLower
-        })
+        const parts = resultStr.split(':')
+        const newPoints = parseInt(parts[1], 10)
+        const nextClaimTime = parseInt(parts[2], 10)
 
         return NextResponse.json({
             success: true,
             pointsEarned: DAILY_LOGIN_POINTS,
             totalDailyLoginPoints: newPoints,
-            nextClaimTime: now + COOLDOWN_MS,
+            nextClaimTime,
             message: `+${DAILY_LOGIN_POINTS} points claimed!`
         })
     } catch (error) {

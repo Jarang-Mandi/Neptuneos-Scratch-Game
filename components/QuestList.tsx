@@ -1,14 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { sanitizeDisplayText } from '@/lib/sanitize'
 
 interface QuestListProps {
     wallet: string | null
     isSupporter: boolean
     onPointsUpdate?: () => void
+    getAuthHeaders?: () => Record<string, string>
 }
 
-export default function QuestList({ wallet, isSupporter, onPointsUpdate }: QuestListProps) {
+export default function QuestList({ wallet, isSupporter, onPointsUpdate, getAuthHeaders }: QuestListProps) {
     const [dailyLoginStatus, setDailyLoginStatus] = useState<{
         canClaim: boolean
         cooldownRemaining: number
@@ -83,17 +85,17 @@ export default function QuestList({ wallet, isSupporter, onPointsUpdate }: Quest
         try {
             const res = await fetch('/api/quest/daily-login', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders?.() },
                 body: JSON.stringify({ wallet })
             })
             const data = await res.json()
 
             if (data.success) {
-                setMessage(`✅ ${data.message}`)
+                setMessage(`✅ ${sanitizeDisplayText(data.message, 80)}`)
                 fetchQuestData()
                 onPointsUpdate?.()
             } else {
-                setMessage(`❌ ${data.error}`)
+                setMessage(`❌ ${sanitizeDisplayText(data.error, 80)}`)
             }
         } catch (error) {
             setMessage('❌ Failed to claim')
@@ -110,17 +112,17 @@ export default function QuestList({ wallet, isSupporter, onPointsUpdate }: Quest
         try {
             const res = await fetch('/api/profile', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders?.() },
                 body: JSON.stringify({ wallet, action: 'claim_supporter_bonus' })
             })
             const data = await res.json()
 
             if (data.success) {
-                setMessage(`✅ ${data.message}`)
+                setMessage(`✅ ${sanitizeDisplayText(data.message, 80)}`)
                 fetchQuestData()
                 onPointsUpdate?.()
             } else {
-                setMessage(`❌ ${data.error}`)
+                setMessage(`❌ ${sanitizeDisplayText(data.error, 80)}`)
             }
         } catch (error) {
             setMessage('❌ Failed to claim')

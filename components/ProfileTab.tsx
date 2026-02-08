@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { sanitizeImageUrl, sanitizeDisplayText } from '@/lib/sanitize'
 
 interface ProfileTabProps {
     wallet: string | null
@@ -32,6 +33,8 @@ interface ProfileData {
 }
 
 export default function ProfileTab({ wallet, fid, username, pfpUrl }: ProfileTabProps) {
+    const safePfpUrl = sanitizeImageUrl(pfpUrl)
+    const safeUsername = sanitizeDisplayText(username, 30)
     const [profile, setProfile] = useState<ProfileData | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [message, setMessage] = useState('')
@@ -124,10 +127,11 @@ export default function ProfileTab({ wallet, fid, username, pfpUrl }: ProfileTab
                     overflow: 'hidden',
                     border: profile?.isSupporter ? '3px solid #ffd700' : '2px solid rgba(88, 216, 255, 0.4)'
                 }}>
-                    {pfpUrl ? (
+                    {safePfpUrl ? (
                         <img
-                            src={pfpUrl}
+                            src={safePfpUrl}
                             alt="Profile"
+                            referrerPolicy="no-referrer"
                             style={{
                                 width: '100%',
                                 height: '100%',
@@ -145,9 +149,9 @@ export default function ProfileTab({ wallet, fid, username, pfpUrl }: ProfileTab
                     )}
                 </div>
 
-                {username && (
+                {safeUsername && (
                     <p style={{ color: '#58d8ff', fontWeight: 'bold', fontSize: '18px' }}>
-                        @{username}
+                        @{safeUsername}
                     </p>
                 )}
 

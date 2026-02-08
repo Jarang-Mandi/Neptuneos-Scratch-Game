@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Redis } from '@upstash/redis'
 import { Ratelimit } from '@upstash/ratelimit'
+import { verifyAuthForWallet } from '@/lib/auth'
 
 // Point values
 const LEVEL_POINTS = { easy: 3, medium: 5, hard: 10 }
@@ -136,30 +137,59 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid wallet' }, { status: 400 })
         }
 
+        // Verify session auth — only wallet owner can claim bonus
+        const auth = verifyAuthForWallet(request, wallet)
+        if (!auth.authenticated) {
+            return NextResponse.json({ error: auth.error }, { status: 401 })
+        }
+
         const walletLower = wallet.toLowerCase()
         const key = `player:${walletLower}`
 
         if (action === 'claim_supporter_bonus') {
-            const data = await redis.hgetall(key)
+            /**
+             * Lua script: atomic supporter-bonus claim.
+             * Checks isSupporter + supporterBonusClaimed in one atomic op,
+             * preventing double-claim from concurrent requests.
+             */
+            const SUPPORTER_BONUS_LUA = `
+local key = KEYS[1]
 
-            // Check if supporter
-            if (!data?.isSupporter) {
+local isSupporter = redis.call('HGET', key, 'isSupporter')
+if not isSupporter or isSupporter == 'false' or isSupporter == '0' then
+  return 'NOT_SUPPORTER'
+end
+
+local claimed = redis.call('HGET', key, 'supporterBonusClaimed')
+if claimed == 'true' or claimed == '1' then
+  return 'ALREADY_CLAIMED'
+end
+
+redis.call('HSET', key, 'supporterBonusClaimed', 'true')
+return 'OK'
+`
+
+            const result = await redis.eval(
+                SUPPORTER_BONUS_LUA,
+                [key],
+                []
+            ) as string
+
+            const resultStr = String(result)
+
+            if (resultStr === 'NOT_SUPPORTER') {
                 return NextResponse.json({
                     success: false,
                     error: 'You must be a supporter to claim this bonus!'
                 }, { status: 400 })
             }
 
-            // Check if already claimed
-            if (data?.supporterBonusClaimed) {
+            if (resultStr === 'ALREADY_CLAIMED') {
                 return NextResponse.json({
                     success: false,
                     error: 'Supporter bonus already claimed!'
                 }, { status: 400 })
             }
-
-            // Claim bonus
-            await redis.hset(key, { supporterBonusClaimed: true })
 
             return NextResponse.json({
                 success: true,

@@ -27,11 +27,11 @@ export async function GET(request: NextRequest) {
             )
         }
 
-        // Optional: Check for admin key (if you want to restrict exports)
-        // const authKey = request.headers.get('x-admin-key')
-        // if (authKey !== process.env.ADMIN_KEY) {
-        //     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        // }
+        // Admin authentication required — prevents unauthorized data exports
+        const authKey = request.headers.get('x-admin-key')
+        if (!process.env.ADMIN_KEY || authKey !== process.env.ADMIN_KEY) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
 
         // Get all player keys using SCAN (more efficient)
         const playerKeys: string[] = []

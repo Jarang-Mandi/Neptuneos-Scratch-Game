@@ -194,7 +194,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { wallet, level, isSupporter = false } = body
+        const { wallet, level } = body
 
         // Validate inputs
         if (!wallet || !level) {
@@ -266,7 +266,7 @@ export async function POST(request: NextRequest) {
         else if (level === 'medium') player.mediumWins++
         else if (level === 'hard') player.hardWins++
 
-        if (isSupporter) player.isSupporter = true
+        // isSupporter is ALWAYS read from existing Redis data, never from client
 
         // Save to Redis with all fields
         await redis.hset(key, {
