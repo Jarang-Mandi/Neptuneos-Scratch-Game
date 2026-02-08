@@ -51,6 +51,12 @@ export default function ScratchGame({ wallet, getAuthHeaders, onWin, onLose }: S
     const gameActiveRef = useRef(false)
     const pendingRevealsRef = useRef<Set<number>>(new Set())
 
+    // Keep getAuthHeaders in a ref so it's always fresh inside callbacks
+    const getAuthHeadersRef = useRef(getAuthHeaders)
+    useEffect(() => {
+        getAuthHeadersRef.current = getAuthHeaders
+    }, [getAuthHeaders])
+
     const levelConfig = validLevels[level]
     const gSize = levelConfig.size
     const totalBombs = levelConfig.bombs
@@ -138,7 +144,7 @@ export default function ScratchGame({ wallet, getAuthHeaders, onWin, onLose }: S
             // Request new game session from server
             const res = await fetch('/api/game/start', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...getAuthHeaders?.() },
+                headers: { 'Content-Type': 'application/json', ...getAuthHeadersRef.current?.() },
                 body: JSON.stringify({ wallet, level })
             })
 
@@ -194,7 +200,7 @@ export default function ScratchGame({ wallet, getAuthHeaders, onWin, onLose }: S
             // Ask server what's behind this cell
             const res = await fetch('/api/game/reveal', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...getAuthHeaders?.() },
+                headers: { 'Content-Type': 'application/json', ...getAuthHeadersRef.current?.() },
                 body: JSON.stringify({
                     gameId: gameIdRef.current,
                     token: gameTokenRef.current,
