@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Redis } from '@upstash/redis'
 import { Ratelimit } from '@upstash/ratelimit'
 import { verifyAuthForWallet } from '@/lib/auth'
+import crypto from 'crypto'
 
 // Referral constants
 const REFERRAL_POINTS = 10
@@ -22,11 +23,10 @@ function isValidWallet(wallet: string): boolean {
     return /^0x[a-fA-F0-9]{40}$/.test(wallet)
 }
 
-// Generate unique referral code from wallet
+// Generate unique referral code from wallet (crypto-safe randomness)
 function generateReferralCode(wallet: string): string {
-    // Use last 8 chars of wallet + random 4 chars
     const walletPart = wallet.slice(-6).toUpperCase()
-    const randomPart = Math.random().toString(36).slice(2, 6).toUpperCase()
+    const randomPart = crypto.randomBytes(3).toString('hex').slice(0, 4).toUpperCase()
     return `${walletPart}${randomPart}`
 }
 

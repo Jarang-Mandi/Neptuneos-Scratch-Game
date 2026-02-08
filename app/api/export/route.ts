@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Redis } from '@upstash/redis'
 import { Ratelimit } from '@upstash/ratelimit'
+import crypto from 'crypto'
 
 const redis = Redis.fromEnv()
 
@@ -27,9 +28,10 @@ export async function GET(request: NextRequest) {
             )
         }
 
-        // Admin authentication required — prevents unauthorized data exports
+        // Admin authentication required — timing-safe comparison prevents side-channel attacks
         const authKey = request.headers.get('x-admin-key')
-        if (!process.env.ADMIN_KEY || authKey !== process.env.ADMIN_KEY) {
+        if (!process.env.ADMIN_KEY || !authKey ||
+            !crypto.timingSafeEqual(Buffer.from(authKey), Buffer.from(process.env.ADMIN_KEY))) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 

@@ -1,6 +1,10 @@
 import crypto from 'crypto'
 
-const GAME_SECRET = process.env.GAME_SECRET || 'default-dev-secret-change-in-production'
+const _gameSecret = process.env.GAME_SECRET
+if (!_gameSecret) {
+    throw new Error('FATAL: GAME_SECRET environment variable is required. Generate one with: openssl rand -hex 32')
+}
+const GAME_SECRET: string = _gameSecret
 
 const emojis = ["🍒", "⭐", "🍀", "🔔", "🥇", "🍉", "🍇", "🍎", "🎁", "🎉"]
 

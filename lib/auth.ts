@@ -3,7 +3,11 @@ import { Redis } from '@upstash/redis'
 import { verifyMessage } from 'viem'
 import { NextRequest, NextResponse } from 'next/server'
 
-const AUTH_SECRET = process.env.GAME_SECRET || 'default-dev-secret-change-in-production'
+const _authSecret = process.env.GAME_SECRET
+if (!_authSecret) {
+    throw new Error('FATAL: GAME_SECRET environment variable is required. Generate one with: openssl rand -hex 32')
+}
+const AUTH_SECRET: string = _authSecret
 const SESSION_TTL = 24 * 60 * 60 // 24 hours in seconds
 const NONCE_TTL = 300 // 5 minutes in seconds
 

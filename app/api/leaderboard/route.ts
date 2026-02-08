@@ -14,9 +14,6 @@ const DAILY_LOGIN_POINTS = 2
 const SUPPORTER_BONUS_POINTS = 50
 const REFERRAL_POINTS = 10
 
-// Daily win limit
-const DAILY_WIN_LIMIT = 10
-
 // Initialize Redis client
 const redis = Redis.fromEnv()
 
@@ -27,21 +24,9 @@ const ratelimit = new Ratelimit({
     analytics: true,
 })
 
-// Rate limiter for POST: 5 wins per minute per wallet (anti-cheat)
-const winRatelimit = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(5, '60 s'),
-    analytics: true,
-})
-
 // Wallet address validation
 function isValidWallet(wallet: string): boolean {
     return /^0x[a-fA-F0-9]{40}$/.test(wallet)
-}
-
-// Get current date string for daily reset (UTC)
-function getTodayDateString(): string {
-    return new Date().toISOString().split('T')[0]
 }
 
 interface PlayerStats {
@@ -190,119 +175,11 @@ export async function GET(request: NextRequest) {
     }
 }
 
-// Record a win
-export async function POST(request: NextRequest) {
-    try {
-        const body = await request.json()
-        const { wallet, level } = body
-
-        // Validate inputs
-        if (!wallet || !level) {
-            return NextResponse.json({ error: 'Missing wallet or level' }, { status: 400 })
-        }
-
-        if (!isValidWallet(wallet)) {
-            return NextResponse.json({ error: 'Invalid wallet address format' }, { status: 400 })
-        }
-
-        if (!['easy', 'medium', 'hard'].includes(level)) {
-            return NextResponse.json({ error: 'Invalid level' }, { status: 400 })
-        }
-
-        const walletLower = wallet.toLowerCase()
-
-        // Rate limit by wallet address (anti-cheat: max 5 wins per minute)
-        const { success, remaining } = await winRatelimit.limit(`win:${walletLower}`)
-
-        if (!success) {
-            return NextResponse.json({
-                error: 'You are playing too fast! Please wait a moment.',
-                remaining: 0
-            }, { status: 429 })
-        }
-
-        const key = `player:${walletLower}`
-        const today = getTodayDateString()
-
-        // Get existing player data or create new
-        const existing = await redis.hgetall(key)
-
-        // Check and reset daily win count if new day
-        let currentDailyWins = Number(existing?.dailyWinCount || 0)
-        const lastWinDate = String(existing?.dailyWinDate || '')
-
-        if (lastWinDate !== today) {
-            // New day, reset counter
-            currentDailyWins = 0
-        }
-
-        // Check daily win limit (10 wins per day)
-        if (currentDailyWins >= DAILY_WIN_LIMIT) {
-            return NextResponse.json({
-                error: 'Daily win limit reached! Come back tomorrow.',
-                dailyWinsRemaining: 0,
-                limitReached: true
-            }, { status: 429 })
-        }
-
-        const player: PlayerStats = {
-            wallet: walletLower,
-            easyWins: Number(existing?.easyWins || 0),
-            mediumWins: Number(existing?.mediumWins || 0),
-            hardWins: Number(existing?.hardWins || 0),
-            isSupporter: Boolean(existing?.isSupporter || false),
-            supporterBonusClaimed: Boolean(existing?.supporterBonusClaimed || false),
-            dailyWinCount: currentDailyWins + 1,
-            dailyWinDate: today,
-            referralCode: String(existing?.referralCode || ''),
-            referredBy: String(existing?.referredBy || ''),
-            referralCount: Number(existing?.referralCount || 0),
-            lastDailyLogin: Number(existing?.lastDailyLogin || 0),
-            dailyLoginPoints: Number(existing?.dailyLoginPoints || 0)
-        }
-
-        // Increment wins for the level
-        if (level === 'easy') player.easyWins++
-        else if (level === 'medium') player.mediumWins++
-        else if (level === 'hard') player.hardWins++
-
-        // isSupporter is ALWAYS read from existing Redis data, never from client
-
-        // Save to Redis with all fields
-        await redis.hset(key, {
-            wallet: player.wallet,
-            easyWins: player.easyWins,
-            mediumWins: player.mediumWins,
-            hardWins: player.hardWins,
-            isSupporter: player.isSupporter,
-            supporterBonusClaimed: player.supporterBonusClaimed,
-            dailyWinCount: player.dailyWinCount,
-            dailyWinDate: player.dailyWinDate,
-            referralCode: player.referralCode,
-            referredBy: player.referredBy,
-            referralCount: player.referralCount,
-            lastDailyLogin: player.lastDailyLogin,
-            dailyLoginPoints: player.dailyLoginPoints
-        })
-
-        // Invalidate cache
-        leaderboardCache = null
-
-        // Calculate new total points (game points only)
-        const gamePoints =
-            player.easyWins * LEVEL_POINTS.easy +
-            player.mediumWins * LEVEL_POINTS.medium +
-            player.hardWins * LEVEL_POINTS.hard
-
-        return NextResponse.json({
-            success: true,
-            totalPoints: gamePoints,
-            pointsEarned: LEVEL_POINTS[level],
-            dailyWinsRemaining: DAILY_WIN_LIMIT - player.dailyWinCount!,
-            remaining // Show remaining rate limit
-        })
-    } catch (error) {
-        console.error('Leaderboard POST error:', error)
-        return NextResponse.json({ error: 'Server error' }, { status: 500 })
-    }
+// DEPRECATED: Wins are now recorded atomically via /api/game/reveal → recordWin()
+// This endpoint is kept for backward compatibility but rejects all POST requests.
+export async function POST() {
+    return NextResponse.json(
+        { error: 'This endpoint is deprecated. Wins are recorded server-side via /api/game/reveal.' },
+        { status: 410 }
+    )
 }
