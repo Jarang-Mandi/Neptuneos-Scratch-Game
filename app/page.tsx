@@ -24,7 +24,7 @@ type TabType = 'game' | 'board' | 'profile'
 
 export default function Home() {
     const { address, isConnected } = useAccount()
-    const { isAuthenticated, isAuthenticating, authError, login, authFetch, getAuthHeaders } = useAuth()
+    const { isAuthenticated, isAuthenticating, authError, login, retryLogin, authFetch, getAuthHeaders } = useAuth()
     const [isSupporter, setIsSupporter] = useState(false)
     const [stats, setStats] = useState({ wins: 0, losses: 0, points: 0 })
     const [leaderboardRefresh, setLeaderboardRefresh] = useState(0)
@@ -235,7 +235,7 @@ export default function Home() {
                                     <>
                                         <p style={{ color: '#ff6b6b', fontSize: '13px', marginBottom: '8px' }}>❌ {authError}</p>
                                         <button
-                                            onClick={() => login()}
+                                            onClick={() => { retryLogin(); login() }}
                                             style={{
                                                 padding: '8px 16px',
                                                 background: 'linear-gradient(145deg, #00c6ff, #0072ff)',
@@ -251,7 +251,7 @@ export default function Home() {
                                     </>
                                 ) : (
                                     <button
-                                        onClick={() => login()}
+                                        onClick={() => { retryLogin(); login() }}
                                         style={{
                                             padding: '10px 20px',
                                             background: 'linear-gradient(145deg, #00c6ff, #0072ff)',

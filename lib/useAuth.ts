@@ -34,6 +34,7 @@ export function useAuth() {
         error: null
     })
     const loginAttempted = useRef(false)
+    const isAuthenticatingRef = useRef(false)
 
     // Restore token from sessionStorage on mount
     useEffect(() => {
@@ -75,8 +76,11 @@ export function useAuth() {
      */
     const login = useCallback(async () => {
         if (!address || !isConnected) return null
-        if (authState.isAuthenticating) return null
+        if (isAuthenticatingRef.current) return null
+        if (loginAttempted.current) return null
 
+        loginAttempted.current = true
+        isAuthenticatingRef.current = true
         setAuthState(prev => ({ ...prev, isAuthenticating: true, error: null }))
 
         try {
@@ -108,6 +112,7 @@ export function useAuth() {
             sessionStorage.setItem(TOKEN_KEY, token)
             sessionStorage.setItem(WALLET_KEY, address.toLowerCase())
 
+            isAuthenticatingRef.current = false
             setAuthState({
                 token,
                 isAuthenticated: true,
@@ -121,6 +126,7 @@ export function useAuth() {
                 ? 'Signature rejected. Please sign to continue.'
                 : error?.message || 'Authentication failed'
 
+            isAuthenticatingRef.current = false
             setAuthState(prev => ({
                 ...prev,
                 isAuthenticating: false,
@@ -128,7 +134,7 @@ export function useAuth() {
             }))
             return null
         }
-    }, [address, isConnected, authState.isAuthenticating, signMessageAsync])
+    }, [address, isConnected, signMessageAsync])
 
     /**
      * Get auth headers for API calls.
@@ -151,12 +157,22 @@ export function useAuth() {
         return fetch(url, { ...options, headers })
     }, [getAuthHeaders])
 
+    /**
+     * Reset login guard so auto-login or manual login can be retried.
+     * Call this when the user explicitly wants to retry sign-in.
+     */
+    const retryLogin = useCallback(() => {
+        loginAttempted.current = false
+        setAuthState(prev => ({ ...prev, error: null }))
+    }, [])
+
     return {
         token: authState.token,
         isAuthenticated: authState.isAuthenticated,
         isAuthenticating: authState.isAuthenticating,
         authError: authState.error,
         login,
+        retryLogin,
         getAuthHeaders,
         authFetch
     }
