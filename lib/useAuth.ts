@@ -122,15 +122,26 @@ export function useAuth() {
 
             return token
         } catch (error: any) {
-            const errorMsg = error?.message?.includes('User rejected')
+            const msg = error?.message || ''
+            const isConnectorNotReady = msg.includes('getChainId') || msg.includes('connector')
+            const isUserRejected = msg.includes('User rejected') || msg.includes('user rejected')
+
+            // If connector wasn't ready, allow auto-retry on next render cycle
+            if (isConnectorNotReady) {
+                loginAttempted.current = false
+            }
+
+            const errorMsg = isUserRejected
                 ? 'Signature rejected. Please sign to continue.'
-                : error?.message || 'Authentication failed'
+                : isConnectorNotReady
+                    ? 'Wallet connector not ready. Retrying...'
+                    : msg || 'Authentication failed'
 
             isAuthenticatingRef.current = false
             setAuthState(prev => ({
                 ...prev,
                 isAuthenticating: false,
-                error: errorMsg
+                error: isConnectorNotReady ? null : errorMsg
             }))
             return null
         }

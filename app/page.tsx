@@ -34,10 +34,15 @@ export default function Home() {
     const bgmRef = useRef<HTMLAudioElement>(null)
 
     // Auto-login when wallet connects and not yet authenticated
+    // Delay slightly to allow connectors (especially Farcaster) to fully initialise
     useEffect(() => {
-        if (isConnected && address && !isAuthenticated && !isAuthenticating) {
+        if (!isConnected || !address || isAuthenticated || isAuthenticating) return
+
+        const timer = setTimeout(() => {
             login()
-        }
+        }, 600)
+
+        return () => clearTimeout(timer)
     }, [isConnected, address, isAuthenticated, isAuthenticating, login])
 
     // Get Farcaster context (sanitise untrusted external data)

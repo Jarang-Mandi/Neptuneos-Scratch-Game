@@ -1,7 +1,14 @@
 import crypto from 'crypto'
 import { Redis } from '@upstash/redis'
-import { verifyMessage } from 'viem'
+import { createPublicClient, http } from 'viem'
+import { base } from 'viem/chains'
 import { NextRequest, NextResponse } from 'next/server'
+
+// Public client for on-chain verification (EIP-1271 smart wallet support)
+const publicClient = createPublicClient({
+    chain: base,
+    transport: http(),
+})
 
 const _authSecret = process.env.GAME_SECRET
 if (!_authSecret) {
@@ -124,13 +131,17 @@ export async function verifyWalletSignature(
     signature: string
 ): Promise<boolean> {
     try {
-        const isValid = await verifyMessage({
+        // publicClient.verifyMessage supports both:
+        // - EOA wallets (ecrecover / EIP-191)
+        // - Smart contract wallets / passkeys (EIP-1271 isValidSignature)
+        const isValid = await publicClient.verifyMessage({
             address: wallet as `0x${string}`,
             message,
             signature: signature as `0x${string}`
         })
         return isValid
-    } catch {
+    } catch (err) {
+        console.error('Signature verification failed:', err)
         return false
     }
 }
