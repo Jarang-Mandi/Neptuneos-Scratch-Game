@@ -196,6 +196,13 @@ export default function ScratchGame({ wallet, getAuthHeaders, onWin, onLose }: S
 
         pendingRevealsRef.current.add(idx)
 
+        // === Optimistic UI: show revealing state immediately ===
+        setCells(prev => {
+            const newCells = [...prev]
+            newCells[idx] = { ...newCells[idx], emoji: '⏳', revealed: true }
+            return newCells
+        })
+
         try {
             // Ask server what's behind this cell
             const res = await fetch('/api/game/reveal', {
@@ -210,6 +217,12 @@ export default function ScratchGame({ wallet, getAuthHeaders, onWin, onLose }: S
             })
 
             if (!res.ok) {
+                // Revert optimistic reveal on error
+                setCells(prev => {
+                    const newCells = [...prev]
+                    newCells[idx] = { emoji: '❓', revealed: false, isBomb: false }
+                    return newCells
+                })
                 console.error('Reveal error:', (await res.json()).error)
                 return
             }
@@ -244,7 +257,7 @@ export default function ScratchGame({ wallet, getAuthHeaders, onWin, onLose }: S
                     onLose?.(level)
                 }
             } else {
-                // Safe cell revealed, game continues
+                // Safe cell — update with actual emoji from server
                 setCells(prev => {
                     const newCells = [...prev]
                     newCells[idx] = {
@@ -256,6 +269,12 @@ export default function ScratchGame({ wallet, getAuthHeaders, onWin, onLose }: S
                 })
             }
         } catch (error) {
+            // Revert optimistic reveal on network failure
+            setCells(prev => {
+                const newCells = [...prev]
+                newCells[idx] = { emoji: '❓', revealed: false, isBomb: false }
+                return newCells
+            })
             console.error('Reveal failed:', error)
         } finally {
             pendingRevealsRef.current.delete(idx)
