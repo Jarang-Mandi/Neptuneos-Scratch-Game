@@ -196,10 +196,10 @@ export default function ScratchGame({ wallet, getAuthHeaders, onWin, onLose }: S
 
         pendingRevealsRef.current.add(idx)
 
-        // === Optimistic UI: show revealing state immediately ===
+        // === Optimistic UI: mark cell as revealed immediately (keep ❓ as placeholder) ===
         setCells(prev => {
             const newCells = [...prev]
-            newCells[idx] = { ...newCells[idx], emoji: '⏳', revealed: true }
+            newCells[idx] = { ...newCells[idx], revealed: true }
             return newCells
         })
 
