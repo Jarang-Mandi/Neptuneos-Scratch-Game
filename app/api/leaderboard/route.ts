@@ -42,7 +42,7 @@ async function rebuildLeaderboard(): Promise<void> {
             }
             const results = await pipeline.exec()
 
-            const zaddPipeline = redis.pipeline()
+            const zaddItems: { score: number; member: string }[] = []
             for (const vals of results) {
                 const v = vals as (string | null)[]
                 if (!v || !v[0]) continue
@@ -54,9 +54,17 @@ async function rebuildLeaderboard(): Promise<void> {
                     (Number(v[4]) || 0) +
                     ((v[5] === 'true' || v[5] === '1') ? POINTS.supporterBonus : 0) +
                     (Number(v[6]) || 0) * POINTS.referral
-                zaddPipeline.zadd(LEADERBOARD_KEY, { score, member: wallet })
+                zaddItems.push({ score, member: wallet })
             }
-            await zaddPipeline.exec()
+
+            // Guard: skip exec if no valid players in this batch
+            if (zaddItems.length > 0) {
+                const zaddPipeline = redis.pipeline()
+                for (const item of zaddItems) {
+                    zaddPipeline.zadd(LEADERBOARD_KEY, item)
+                }
+                await zaddPipeline.exec()
+            }
         }
     } finally {
         await redis.del(lockKey)
@@ -99,18 +107,40 @@ export async function GET(request: NextRequest) {
         const topWallets = await redis.zrange(LEADERBOARD_KEY, 0, 99, { rev: true, withScores: true })
 
         if (!topWallets || topWallets.length === 0) {
-            const data = { entries: [], total: 0 }
+            const data = { entries: [], total: totalPlayers }
             await redis.set(LEADERBOARD_CACHE_KEY, JSON.stringify(data), { ex: CACHE_TTL })
             return NextResponse.json(data)
         }
 
-        // Extract wallets and scores from zrange result
-        // topWallets is [member, score, member, score, ...]
+        // Upstash SDK zrange with withScores returns Array<{ score: number, member: string }>
+        // Handle both object format and legacy alternating format for safety
         const wallets: string[] = []
         const scores: number[] = []
-        for (let i = 0; i < topWallets.length; i += 2) {
-            wallets.push(String(topWallets[i]))
-            scores.push(Number(topWallets[i + 1]))
+
+        if (topWallets.length > 0 && typeof topWallets[0] === 'object' && topWallets[0] !== null && 'member' in (topWallets[0] as any)) {
+            // Object format: [{ member: "0x...", score: 10 }, ...]
+            for (const item of topWallets as Array<{ member: string; score: number }>) {
+                wallets.push(String(item.member))
+                scores.push(Number(item.score))
+            }
+        } else if (topWallets.length > 0 && typeof topWallets[0] === 'object' && topWallets[0] !== null && 'value' in (topWallets[0] as any)) {
+            // Some SDK versions use 'value' instead of 'member'
+            for (const item of topWallets as Array<{ value: string; score: number }>) {
+                wallets.push(String(item.value))
+                scores.push(Number(item.score))
+            }
+        } else {
+            // Legacy alternating format: [member, score, member, score, ...]
+            for (let i = 0; i < topWallets.length; i += 2) {
+                wallets.push(String(topWallets[i]))
+                scores.push(Number(topWallets[i + 1]))
+            }
+        }
+
+        if (wallets.length === 0) {
+            const data = { entries: [], total: totalPlayers }
+            await redis.set(LEADERBOARD_CACHE_KEY, JSON.stringify(data), { ex: CACHE_TTL })
+            return NextResponse.json(data)
         }
 
         // Pipeline HMGET for just the top 100 wallets (not ALL players)
