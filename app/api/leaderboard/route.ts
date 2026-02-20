@@ -12,8 +12,15 @@ function isValidWallet(wallet: string): boolean {
 const CACHE_TTL = 10 // 10 seconds
 
 /**
- * One-time migration: rebuild sorted-set leaderboard from existing player hashes.
- * Only runs when the sorted set is empty (first deploy or after FLUSHALL).
+ * Rebuild version — bump this to force a full resync of all player hashes
+ * into the sorted-set leaderboard on next request after deploy.
+ */
+const REBUILD_VERSION = 2
+const REBUILD_VERSION_KEY = 'leaderboard:rebuild_version'
+
+/**
+ * Rebuild sorted-set leaderboard from existing player hashes.
+ * Runs once per REBUILD_VERSION so old players are always backfilled.
  */
 async function rebuildLeaderboard(): Promise<void> {
     const lockKey = 'leaderboard:rebuilding'
@@ -75,6 +82,8 @@ async function rebuildLeaderboard(): Promise<void> {
             }
         }
     } finally {
+        // Mark this version as rebuilt so it doesn't run again
+        await redis.set(REBUILD_VERSION_KEY, REBUILD_VERSION)
         await redis.del(lockKey)
     }
 }
@@ -103,11 +112,15 @@ export async function GET(request: NextRequest) {
             })
         }
 
-        // Check if sorted set exists, rebuild if empty (one-time migration)
-        const count = await redis.zcard(LEADERBOARD_KEY)
-        if (count === 0) {
+        // Check if rebuild is needed (version mismatch or empty sorted set)
+        const [currentVersion, count] = await Promise.all([
+            redis.get(REBUILD_VERSION_KEY),
+            redis.zcard(LEADERBOARD_KEY),
+        ])
+        if (count === 0 || Number(currentVersion) !== REBUILD_VERSION) {
             // Clear any stale rebuild lock before retrying
             await redis.del('leaderboard:rebuilding')
+            await redis.del(LEADERBOARD_CACHE_KEY)
             await rebuildLeaderboard()
         }
 
