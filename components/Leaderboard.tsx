@@ -75,9 +75,9 @@ export default function Leaderboard() {
                     fontSize: '12px',
                     color: '#aaa'
                 }}>
-                    <span>🟢 Easy: 1pt</span>
-                    <span>🟡 Medium: 2pt</span>
-                    <span>🔴 Hard: 3pt</span>
+                    <span>🟢 Easy: 3pt</span>
+                    <span>🟡 Medium: 5pt</span>
+                    <span>🔴 Hard: 10pt</span>
                 </div>
 
                 {/* Leaderboard Table */}

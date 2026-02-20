@@ -30,6 +30,7 @@ async function rebuildLeaderboard(): Promise<void> {
             keys.push(...result[1])
         } while (cursor !== '0')
 
+        console.log(`[Leaderboard] Rebuilding sorted set from ${keys.length} player keys`)
         if (keys.length === 0) return
 
         // Pipeline HMGET + compute scores in batches of 100
@@ -42,18 +43,24 @@ async function rebuildLeaderboard(): Promise<void> {
             }
             const results = await pipeline.exec()
 
+            // Upstash SDK hmget returns { field: value } object (NOT array)
+            // Values are auto-parsed: "5" → 5 (number), "true" → true (boolean)
             const zaddItems: { score: number; member: string }[] = []
-            for (const vals of results) {
-                const v = vals as (string | null)[]
-                if (!v || !v[0]) continue
-                const wallet = v[0]
+            for (let j = 0; j < results.length; j++) {
+                const v = results[j] as Record<string, unknown> | null
+                if (!v) continue
+
+                // Extract wallet from key name (more reliable than hash field)
+                const wallet = batch[j].replace('player:', '')
+                if (!isValidWallet(wallet)) continue
+
                 const score =
-                    (Number(v[1]) || 0) * POINTS.easy +
-                    (Number(v[2]) || 0) * POINTS.medium +
-                    (Number(v[3]) || 0) * POINTS.hard +
-                    (Number(v[4]) || 0) +
-                    ((v[5] === 'true' || v[5] === '1') ? POINTS.supporterBonus : 0) +
-                    (Number(v[6]) || 0) * POINTS.referral
+                    (Number(v.easyWins) || 0) * POINTS.easy +
+                    (Number(v.mediumWins) || 0) * POINTS.medium +
+                    (Number(v.hardWins) || 0) * POINTS.hard +
+                    (Number(v.dailyLoginPoints) || 0) +
+                    (v.supporterBonusClaimed === true || v.supporterBonusClaimed === 'true' || v.supporterBonusClaimed === '1' ? POINTS.supporterBonus : 0) +
+                    (Number(v.referralCount) || 0) * POINTS.referral
                 zaddItems.push({ score, member: wallet })
             }
 
@@ -64,6 +71,7 @@ async function rebuildLeaderboard(): Promise<void> {
                     zaddPipeline.zadd(LEADERBOARD_KEY, item)
                 }
                 await zaddPipeline.exec()
+                console.log(`[Leaderboard] Rebuild batch: added ${zaddItems.length} entries`)
             }
         }
     } finally {
@@ -86,7 +94,7 @@ export async function GET(request: NextRequest) {
 
         // Check Redis cache first (shared across all serverless instances)
         const cached = await redis.get(LEADERBOARD_CACHE_KEY)
-        if (cached) {
+        if (cached && typeof cached === 'object' && (cached as any).entries?.length > 0) {
             return NextResponse.json(cached, {
                 headers: {
                     'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=59',
@@ -98,6 +106,8 @@ export async function GET(request: NextRequest) {
         // Check if sorted set exists, rebuild if empty (one-time migration)
         const count = await redis.zcard(LEADERBOARD_KEY)
         if (count === 0) {
+            // Clear any stale rebuild lock before retrying
+            await redis.del('leaderboard:rebuilding')
             await rebuildLeaderboard()
         }
 
@@ -153,13 +163,14 @@ export async function GET(request: NextRequest) {
                 pipeline.hmget(`player:${w}`, 'easyWins', 'mediumWins', 'hardWins', 'isSupporter')
             }
             const results = await pipeline.exec()
+            // Upstash SDK hmget returns { field: value } object (NOT array)
             batch.forEach((w, idx) => {
-                const v = results[idx] as (string | null)[]
+                const v = results[idx] as Record<string, unknown> | null
                 playerData[w] = {
-                    easyWins: Number(v?.[0]) || 0,
-                    mediumWins: Number(v?.[1]) || 0,
-                    hardWins: Number(v?.[2]) || 0,
-                    isSupporter: v?.[3] === 'true' || v?.[3] === '1'
+                    easyWins: Number(v?.easyWins) || 0,
+                    mediumWins: Number(v?.mediumWins) || 0,
+                    hardWins: Number(v?.hardWins) || 0,
+                    isSupporter: v?.isSupporter === true || v?.isSupporter === 'true' || v?.isSupporter === '1'
                 }
             })
         }
