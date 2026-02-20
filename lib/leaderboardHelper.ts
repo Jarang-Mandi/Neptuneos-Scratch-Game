@@ -1,14 +1,6 @@
-import { Redis } from '@upstash/redis'
-
-const LEVEL_POINTS: Record<string, number> = {
-    easy: 3,
-    medium: 5,
-    hard: 10
-}
+import { redis, LEADERBOARD_KEY, POINTS, makeRecalcScoreLua } from '@/lib/redis'
 
 const DAILY_WIN_LIMIT = 10
-
-const redis = Redis.fromEnv()
 
 function getTodayDateString(): string {
     return new Date().toISOString().split('T')[0]
@@ -23,9 +15,13 @@ export interface RecordWinResult {
 }
 
 /**
- * Lua script: atomic daily-win-limit check + win recording.
+ * Lua script: atomic daily-win-limit check + win recording + leaderboard ZADD.
  * Prevents race condition where concurrent reveals bypass the daily limit.
- * Only touches the fields it needs — won't overwrite unrelated fields.
+ * After recording the win, recalculates total score and updates the
+ * sorted-set leaderboard in the same atomic operation.
+ *
+ * KEYS[1] = player hash key
+ * KEYS[2] = leaderboard sorted set key
  */
 const RECORD_WIN_LUA = `
 local key = KEYS[1]
@@ -58,6 +54,8 @@ if not w or w == '' then
   redis.call('HSET', key, 'wallet', walletLower)
 end
 
+${makeRecalcScoreLua('KEYS[2]', 'walletLower')}
+
 return 'OK:' .. (dailyLimit - newCount)
 `
 
@@ -73,7 +71,7 @@ export async function recordWin(wallet: string, level: string): Promise<RecordWi
 
     const result = await redis.eval(
         RECORD_WIN_LUA,
-        [key],
+        [key, LEADERBOARD_KEY],
         [today, level, DAILY_WIN_LIMIT, walletLower]
     ) as string
 
@@ -92,7 +90,7 @@ export async function recordWin(wallet: string, level: string): Promise<RecordWi
 
     return {
         success: true,
-        pointsEarned: LEVEL_POINTS[level] || 0,
+        pointsEarned: POINTS[level as keyof typeof POINTS] || 0,
         dailyWinsRemaining: remaining
     }
 }

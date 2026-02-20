@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Redis } from '@upstash/redis'
-import { Ratelimit } from '@upstash/ratelimit'
+import { createRateLimiter, getClientIp } from '@/lib/redis'
 import { generateNonce, buildSignMessage } from '@/lib/auth'
 
-const redis = Redis.fromEnv()
-
 // Rate limiter: 10 requests per minute per IP
-const ratelimit = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(10, '60 s'),
-    analytics: true,
-})
+const ratelimit = createRateLimiter(10, '60 s')
 
 /**
  * GET /api/auth/nonce?wallet=0x...
@@ -21,7 +14,7 @@ const ratelimit = new Ratelimit({
 export async function GET(request: NextRequest) {
     try {
         // Rate limit by IP to prevent nonce flooding
-        const ip = request.headers.get('x-forwarded-for') || 'anonymous'
+        const ip = getClientIp(request)
         const { success } = await ratelimit.limit(`nonce:${ip}`)
         if (!success) {
             return NextResponse.json({ error: 'Too many requests' }, { status: 429 })

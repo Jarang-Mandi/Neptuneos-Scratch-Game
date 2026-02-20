@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react'
 
 // Point values per level
 const LEVEL_POINTS: Record<string, number> = {
-    easy: 1,
-    medium: 2,
-    hard: 3
+    easy: 3,
+    medium: 5,
+    hard: 10
 }
 
 interface LeaderboardEntry {

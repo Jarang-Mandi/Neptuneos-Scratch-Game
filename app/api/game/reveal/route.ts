@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Redis } from '@upstash/redis'
+import { redis, createRateLimiter, getClientIp } from '@/lib/redis'
 import { verifyGameToken, isValidWallet } from '@/lib/gameSession'
 import { recordWin } from '@/lib/leaderboardHelper'
 import { verifyAuthForWallet } from '@/lib/auth'
 
-const redis = Redis.fromEnv()
+// Rate limiter: 60 reveals per 10s per wallet (prevents rapid-fire spam)
+const ratelimit = createRateLimiter(60, '10 s')
 
 /**
  * Lua script: atomic GET + reveal logic + SET/DEL in a SINGLE Redis round-trip.
@@ -102,6 +103,12 @@ export async function POST(request: NextRequest) {
         }
 
         const walletLower = wallet.toLowerCase()
+
+        // Rate limit reveals by wallet to prevent rapid-fire spam
+        const { success: rlSuccess } = await ratelimit.limit(`reveal:${walletLower}`)
+        if (!rlSuccess) {
+            return NextResponse.json({ error: 'Too fast. Slow down.' }, { status: 429 })
+        }
 
         // HMAC check — local crypto, no network
         if (!verifyGameToken(gameId, walletLower, token)) {

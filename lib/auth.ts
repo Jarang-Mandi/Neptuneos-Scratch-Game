@@ -1,14 +1,7 @@
 import crypto from 'crypto'
-import { Redis } from '@upstash/redis'
-import { createPublicClient, http } from 'viem'
-import { base } from 'viem/chains'
 import { NextRequest, NextResponse } from 'next/server'
-
-// Public client for on-chain verification (EIP-1271 smart wallet support)
-const publicClient = createPublicClient({
-    chain: base,
-    transport: http(),
-})
+import { redis } from '@/lib/redis'
+import { publicClient } from '@/lib/rpc'
 
 const _authSecret = process.env.GAME_SECRET
 if (!_authSecret) {
@@ -17,8 +10,6 @@ if (!_authSecret) {
 const AUTH_SECRET: string = _authSecret
 const SESSION_TTL = 24 * 60 * 60 // 24 hours in seconds
 const NONCE_TTL = 300 // 5 minutes in seconds
-
-const redis = Redis.fromEnv()
 
 // ===== NONCE MANAGEMENT =====
 
@@ -34,17 +25,21 @@ export async function generateNonce(wallet: string): Promise<string> {
 }
 
 /**
- * Consume a nonce — returns it if valid, null if expired/missing.
- * Deletes after read to prevent replay.
+ * Atomic nonce consume — GET + DEL in a single Lua script.
+ * Prevents TOCTOU race where two concurrent login requests
+ * both read the same nonce before either deletes it.
  */
+const CONSUME_NONCE_LUA = `
+local v = redis.call('GET', KEYS[1])
+if v then redis.call('DEL', KEYS[1]) end
+return v
+`
+
 export async function consumeNonce(wallet: string): Promise<string | null> {
     const walletLower = wallet.toLowerCase()
     const key = `nonce:${walletLower}`
-    const nonce = await redis.get(key)
-    if (nonce) {
-        await redis.del(key) // One-time use
-    }
-    return nonce as string | null
+    const nonce = await redis.eval(CONSUME_NONCE_LUA, [key], []) as string | null
+    return nonce
 }
 
 /**

@@ -1,21 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Redis } from '@upstash/redis'
-import { Ratelimit } from '@upstash/ratelimit'
+import { redis, createRateLimiter, LEADERBOARD_KEY, POINTS, makeRecalcScoreLua } from '@/lib/redis'
 import { verifyAuthForWallet } from '@/lib/auth'
 
-// Point values
-const LEVEL_POINTS = { easy: 3, medium: 5, hard: 10 }
-const DAILY_LOGIN_POINTS = 2
-const SUPPORTER_BONUS_POINTS = 50
-const REFERRAL_POINTS = 10
-
-const redis = Redis.fromEnv()
-
-const ratelimit = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(20, '60 s'),
-    analytics: true,
-})
+const ratelimit = createRateLimiter(20, '60 s')
 
 function isValidWallet(wallet: string): boolean {
     return /^0x[a-fA-F0-9]{40}$/.test(wallet)
@@ -74,17 +61,17 @@ export async function GET(request: NextRequest) {
         const mediumWins = Number(data.mediumWins || 0)
         const hardWins = Number(data.hardWins || 0)
 
-        const gamePoints = (easyWins * LEVEL_POINTS.easy) +
-            (mediumWins * LEVEL_POINTS.medium) +
-            (hardWins * LEVEL_POINTS.hard)
+        const gamePoints = (easyWins * POINTS.easy) +
+            (mediumWins * POINTS.medium) +
+            (hardWins * POINTS.hard)
 
         const dailyLoginPoints = Number(data.dailyLoginPoints || 0)
         const isSupporter = Boolean(data.isSupporter)
         const supporterBonusClaimed = Boolean(data.supporterBonusClaimed)
-        const supporterPoints = supporterBonusClaimed ? SUPPORTER_BONUS_POINTS : 0
+        const supporterPoints = supporterBonusClaimed ? POINTS.supporterBonus : 0
 
         const referralCount = Number(data.referralCount || 0)
-        const referralPoints = referralCount * REFERRAL_POINTS
+        const referralPoints = referralCount * POINTS.referral
 
         const totalPoints = gamePoints + dailyLoginPoints + supporterPoints + referralPoints
 
@@ -120,6 +107,10 @@ export async function GET(request: NextRequest) {
             canClaimSupporterBonus: isSupporter && !supporterBonusClaimed,
             dailyWinsRemaining: 10 - dailyWinCount,
             dailyWinCount
+        }, {
+            headers: {
+                'Cache-Control': 'private, s-maxage=5, stale-while-revalidate=30'
+            }
         })
     } catch (error) {
         console.error('Profile GET error:', error)
@@ -148,12 +139,14 @@ export async function POST(request: NextRequest) {
 
         if (action === 'claim_supporter_bonus') {
             /**
-             * Lua script: atomic supporter-bonus claim.
+             * Lua script: atomic supporter-bonus claim + leaderboard ZADD.
              * Checks isSupporter + supporterBonusClaimed in one atomic op,
              * preventing double-claim from concurrent requests.
+             * KEYS[1] = player hash key, KEYS[2] = leaderboard sorted set
              */
             const SUPPORTER_BONUS_LUA = `
 local key = KEYS[1]
+local walletLower = ARGV[1]
 
 local isSupporter = redis.call('HGET', key, 'isSupporter')
 if not isSupporter or isSupporter == 'false' or isSupporter == '0' then
@@ -166,13 +159,16 @@ if claimed == 'true' or claimed == '1' then
 end
 
 redis.call('HSET', key, 'supporterBonusClaimed', 'true')
+
+${makeRecalcScoreLua('KEYS[2]', 'walletLower')}
+
 return 'OK'
 `
 
             const result = await redis.eval(
                 SUPPORTER_BONUS_LUA,
-                [key],
-                []
+                [key, LEADERBOARD_KEY],
+                [walletLower]
             ) as string
 
             const resultStr = String(result)
@@ -193,8 +189,8 @@ return 'OK'
 
             return NextResponse.json({
                 success: true,
-                pointsEarned: SUPPORTER_BONUS_POINTS,
-                message: `+${SUPPORTER_BONUS_POINTS} supporter bonus claimed!`
+                pointsEarned: POINTS.supporterBonus,
+                message: `+${POINTS.supporterBonus} supporter bonus claimed!`
             })
         }
 

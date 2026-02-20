@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Redis } from '@upstash/redis'
-import { Ratelimit } from '@upstash/ratelimit'
+import { createRateLimiter, getClientIp } from '@/lib/redis'
 import {
     consumeNonce,
     buildSignMessage,
@@ -8,14 +7,8 @@ import {
     createSessionToken
 } from '@/lib/auth'
 
-const redis = Redis.fromEnv()
-
 // Rate limiter: 5 login attempts per minute per IP
-const ratelimit = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(5, '60 s'),
-    analytics: true,
-})
+const ratelimit = createRateLimiter(5, '60 s')
 
 /**
  * POST /api/auth/login
@@ -27,7 +20,7 @@ const ratelimit = new Ratelimit({
  */
 export async function POST(request: NextRequest) {
     try {
-        const ip = request.headers.get('x-forwarded-for') || 'anonymous'
+        const ip = getClientIp(request)
         const { success } = await ratelimit.limit(`auth-login:${ip}`)
         if (!success) {
             return NextResponse.json(

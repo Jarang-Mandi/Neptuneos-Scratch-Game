@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Redis } from '@upstash/redis'
-import { Ratelimit } from '@upstash/ratelimit'
+import { redis, createRateLimiter } from '@/lib/redis'
 import {
     generateGameId,
     signGameToken,
@@ -11,14 +10,8 @@ import {
 } from '@/lib/gameSession'
 import { verifyAuthForWallet } from '@/lib/auth'
 
-const redis = Redis.fromEnv()
-
 // Rate limiter: 10 game starts per minute per wallet
-const ratelimit = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(10, '60 s'),
-    analytics: true,
-})
+const ratelimit = createRateLimiter(10, '60 s')
 
 export async function POST(request: NextRequest) {
     try {
@@ -56,9 +49,17 @@ export async function POST(request: NextRequest) {
         const cells = generateGameCells(level)
         const config = getLevelConfig(level)
 
+        // Enforce one-active-game-per-wallet: delete any existing game session.
+        // Prevents abandoned sessions from accumulating in Redis under high load.
+        const existingGameId = await redis.get(`active-game:${walletLower}`)
+        if (existingGameId) {
+            await redis.del(`game:${existingGameId}`)
+        }
+
         // Store game session in Redis with 10-minute TTL
         // Cell contents (bomb positions, emojis) are stored SERVER-SIDE only
-        await redis.set(`game:${gameId}`, JSON.stringify({
+        const pipeline = redis.pipeline()
+        pipeline.set(`game:${gameId}`, JSON.stringify({
             wallet: walletLower,
             level,
             cells,
@@ -66,6 +67,9 @@ export async function POST(request: NextRequest) {
             status: 'active',
             createdAt: Date.now()
         }), { ex: 600 })
+        // Track active game for this wallet (same TTL)
+        pipeline.set(`active-game:${walletLower}`, gameId, { ex: 600 })
+        await pipeline.exec()
 
         // Return game metadata WITHOUT revealing cell contents
         return NextResponse.json({

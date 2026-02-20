@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Redis } from '@upstash/redis'
-import { Ratelimit } from '@upstash/ratelimit'
+import { redis, createRateLimiter, getClientIp, LEADERBOARD_KEY, makeRecalcScoreLua } from '@/lib/redis'
 import { verifySupporterOnChain } from '@/lib/onchain'
 import { verifyAuthForWallet } from '@/lib/auth'
 
-const redis = Redis.fromEnv()
-
-// Rate limiter: 5 requests per minute per IP
-const ratelimit = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(5, '60 s'),
-    analytics: true,
-})
+// Rate limiter: 5 requests per minute per IP (POST)
+const ratelimit = createRateLimiter(5, '60 s')
+// Rate limiter: 10 requests per minute per IP (GET — previously unprotected)
+const getRatelimit = createRateLimiter(10, '60 s')
 
 // Wallet address validation
 function isValidWallet(wallet: string): boolean {
@@ -21,7 +16,7 @@ function isValidWallet(wallet: string): boolean {
 export async function POST(request: NextRequest) {
     try {
         // Rate limiting by IP
-        const ip = request.headers.get('x-forwarded-for') || 'anonymous'
+        const ip = getClientIp(request)
         const { success } = await ratelimit.limit(`donate:${ip}`)
 
         if (!success) {
@@ -63,9 +58,10 @@ export async function POST(request: NextRequest) {
         }
 
         /**
-         * Lua script: atomic supporter registration.
+         * Lua script: atomic supporter registration + leaderboard ZADD.
          * Checks supporter key existence + sets both player and supporter keys
          * in one atomic operation — prevents duplicate processing.
+         * KEYS[1] = player key, KEYS[2] = supporter key, KEYS[3] = leaderboard sorted set
          */
         const REGISTER_SUPPORTER_LUA = `
 local playerKey = KEYS[1]
@@ -81,12 +77,15 @@ end
 redis.call('HSET', playerKey, 'isSupporter', 'true')
 redis.call('HSET', supporterKey, 'wallet', walletLower, 'donatedAt', now)
 
+local key = playerKey
+${makeRecalcScoreLua('KEYS[3]', 'walletLower')}
+
 return 'OK'
 `
 
         const result = await redis.eval(
             REGISTER_SUPPORTER_LUA,
-            [playerKey, supporterKey],
+            [playerKey, supporterKey, LEADERBOARD_KEY],
             [walletLower, Date.now()]
         ) as string
 
@@ -118,6 +117,13 @@ export async function GET(request: NextRequest) {
 
         if (!isValidWallet(wallet)) {
             return NextResponse.json({ error: 'Invalid wallet address' }, { status: 400 })
+        }
+
+        // Rate limit GET by IP
+        const ip = getClientIp(request)
+        const { success: rlSuccess } = await getRatelimit.limit(`donate-get:${ip}`)
+        if (!rlSuccess) {
+            return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
         }
 
         const walletLower = wallet.toLowerCase()

@@ -1,21 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Redis } from '@upstash/redis'
-import { Ratelimit } from '@upstash/ratelimit'
+import { redis, createRateLimiter, getClientIp } from '@/lib/redis'
 import crypto from 'crypto'
 
-const redis = Redis.fromEnv()
-
 // Strict rate limiter: 2 requests per hour per IP (export is expensive)
-const ratelimit = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(2, '3600 s'),
-    analytics: true,
-})
+const ratelimit = createRateLimiter(2, '3600 s')
 
 export async function GET(request: NextRequest) {
     try {
         // Rate limiting - export is expensive, limit to 2 per hour
-        const ip = request.headers.get('x-forwarded-for') || 'anonymous'
+        const ip = getClientIp(request)
         const { success, remaining } = await ratelimit.limit(`export:${ip}`)
 
         if (!success) {
@@ -44,25 +37,33 @@ export async function GET(request: NextRequest) {
             playerKeys.push(...result[1])
         } while (cursor !== '0')
 
-        // Fetch all players
+        // Fetch all players using pipelines (instead of sequential HGETALL)
         const players = []
-        for (const key of playerKeys) {
-            const player = await redis.hgetall(key)
-            if (player) {
-                const easyWins = Number(player.easyWins || 0)
-                const mediumWins = Number(player.mediumWins || 0)
-                const hardWins = Number(player.hardWins || 0)
-                // Updated points: Easy:3, Medium:5, Hard:10
-                const totalPoints = easyWins * 3 + mediumWins * 5 + hardWins * 10
+        const batchSize = 50
+        for (let i = 0; i < playerKeys.length; i += batchSize) {
+            const batch = playerKeys.slice(i, i + batchSize)
+            const pipeline = redis.pipeline()
+            for (const key of batch) {
+                pipeline.hgetall(key)
+            }
+            const results = await pipeline.exec()
+            for (const player of results) {
+                if (player) {
+                    const easyWins = Number((player as any).easyWins || 0)
+                    const mediumWins = Number((player as any).mediumWins || 0)
+                    const hardWins = Number((player as any).hardWins || 0)
+                    // Updated points: Easy:3, Medium:5, Hard:10
+                    const totalPoints = easyWins * 3 + mediumWins * 5 + hardWins * 10
 
-                players.push({
-                    wallet: String(player.wallet),
-                    totalPoints,
-                    easyWins,
-                    mediumWins,
-                    hardWins,
-                    isSupporter: Boolean(player.isSupporter)
-                })
+                    players.push({
+                        wallet: String((player as any).wallet),
+                        totalPoints,
+                        easyWins,
+                        mediumWins,
+                        hardWins,
+                        isSupporter: Boolean((player as any).isSupporter)
+                    })
+                }
             }
         }
 
@@ -79,13 +80,20 @@ export async function GET(request: NextRequest) {
         } while (cursor !== '0')
 
         const supporters: { wallet: string; donatedAt: number }[] = []
-        for (const key of supporterKeys) {
-            const supporter = await redis.hgetall(key)
-            if (supporter) {
-                supporters.push({
-                    wallet: String(supporter.wallet),
-                    donatedAt: Number(supporter.donatedAt || 0)
-                })
+        for (let i = 0; i < supporterKeys.length; i += batchSize) {
+            const batch = supporterKeys.slice(i, i + batchSize)
+            const pipeline = redis.pipeline()
+            for (const key of batch) {
+                pipeline.hgetall(key)
+            }
+            const results = await pipeline.exec()
+            for (const supporter of results) {
+                if (supporter) {
+                    supporters.push({
+                        wallet: String((supporter as any).wallet),
+                        donatedAt: Number((supporter as any).donatedAt || 0)
+                    })
+                }
             }
         }
 

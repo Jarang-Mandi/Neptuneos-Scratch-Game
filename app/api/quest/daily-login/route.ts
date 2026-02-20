@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Redis } from '@upstash/redis'
-import { Ratelimit } from '@upstash/ratelimit'
+import { redis, createRateLimiter, getClientIp, LEADERBOARD_KEY, POINTS, makeRecalcScoreLua } from '@/lib/redis'
 import { verifyAuthForWallet } from '@/lib/auth'
 
 // Daily login reward points
-const DAILY_LOGIN_POINTS = 2
+const DAILY_LOGIN_POINTS = POINTS.dailyLogin
 const COOLDOWN_MS = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
 
-const redis = Redis.fromEnv()
-
-// Rate limiter: 5 requests per minute per wallet
-const ratelimit = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(5, '60 s'),
-    analytics: true,
-})
+// Rate limiter: 5 requests per minute per wallet (POST)
+const ratelimit = createRateLimiter(5, '60 s')
+// Rate limiter: 10 requests per minute per IP (GET — previously unprotected)
+const getRatelimit = createRateLimiter(10, '60 s')
 
 // Wallet address validation
 function isValidWallet(wallet: string): boolean {
@@ -29,6 +24,13 @@ export async function GET(request: NextRequest) {
 
         if (!wallet || !isValidWallet(wallet)) {
             return NextResponse.json({ error: 'Invalid wallet' }, { status: 400 })
+        }
+
+        // Rate limit GET by IP
+        const ip = getClientIp(request)
+        const { success: rlSuccess } = await getRatelimit.limit(`daily-login-get:${ip}`)
+        if (!rlSuccess) {
+            return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
         }
 
         const walletLower = wallet.toLowerCase()
@@ -84,8 +86,9 @@ export async function POST(request: NextRequest) {
         const now = Date.now()
 
         /**
-         * Lua script: atomic cooldown-check + point award.
+         * Lua script: atomic cooldown-check + point award + leaderboard ZADD.
          * Prevents double-claim if two requests arrive simultaneously.
+         * KEYS[1] = player key, KEYS[2] = leaderboard sorted set
          */
         const DAILY_LOGIN_LUA = `
 local key = KEYS[1]
@@ -112,12 +115,14 @@ if not w or w == '' then
   redis.call('HSET', key, 'wallet', walletLower)
 end
 
+${makeRecalcScoreLua('KEYS[2]', 'walletLower')}
+
 return 'OK:' .. newPoints .. ':' .. (now + cooldown)
 `
 
         const result = await redis.eval(
             DAILY_LOGIN_LUA,
-            [key],
+            [key, LEADERBOARD_KEY],
             [now, COOLDOWN_MS, DAILY_LOGIN_POINTS, walletLower]
         ) as string
 

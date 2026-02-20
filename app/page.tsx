@@ -116,27 +116,6 @@ export default function Home() {
         }
     }, [isSupporterOnChain])
 
-    // Also check Redis API for supporter status (fallback)
-    useEffect(() => {
-        const checkSupporterStatus = async () => {
-            if (!address) return
-
-            try {
-                const response = await fetch(`/api/donate?wallet=${address}`)
-                const data = await response.json()
-                if (data.isSupporter) {
-                    setIsSupporter(true)
-                }
-            } catch (error) {
-                console.error('Failed to check supporter status:', error)
-            }
-        }
-
-        if (address) {
-            checkSupporterStatus()
-        }
-    }, [address])
-
     // Music toggle handler
     const handleMusicToggle = useCallback(() => {
         if (bgmRef.current) {

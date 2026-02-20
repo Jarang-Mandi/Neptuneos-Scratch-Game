@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 interface LeaderboardEntry {
     rank: number
@@ -16,11 +16,24 @@ interface InlineLeaderboardProps {
     refreshTrigger?: number // Increment this to trigger refresh
 }
 
+// Minimum interval between refreshes (10s debounce)
+const REFRESH_DEBOUNCE_MS = 10_000
+
 export default function InlineLeaderboard({ refreshTrigger = 0 }: InlineLeaderboardProps) {
     const [entries, setEntries] = useState<LeaderboardEntry[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const lastFetchRef = useRef(0)
 
     useEffect(() => {
+        const now = Date.now()
+        const elapsed = now - lastFetchRef.current
+
+        if (elapsed < REFRESH_DEBOUNCE_MS && lastFetchRef.current !== 0) {
+            // Debounce: skip fetch if last one was < 10s ago
+            return
+        }
+
+        lastFetchRef.current = now
         fetchLeaderboard()
     }, [refreshTrigger])
 

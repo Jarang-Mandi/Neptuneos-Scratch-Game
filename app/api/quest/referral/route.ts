@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Redis } from '@upstash/redis'
-import { Ratelimit } from '@upstash/ratelimit'
+import { redis, createRateLimiter, getClientIp, LEADERBOARD_KEY, makeRecalcScoreLua } from '@/lib/redis'
 import { verifyAuthForWallet } from '@/lib/auth'
 import crypto from 'crypto'
 
@@ -9,14 +8,10 @@ const REFERRAL_POINTS = 10
 const MAX_REFERRALS = 50
 const MIN_WINS_FOR_VALID_REFERRAL = 5
 
-const redis = Redis.fromEnv()
-
-// Rate limiter
-const ratelimit = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(10, '60 s'),
-    analytics: true,
-})
+// Rate limiter (POST)
+const ratelimit = createRateLimiter(10, '60 s')
+// Rate limiter (GET — previously unprotected)
+const getRatelimit = createRateLimiter(10, '60 s')
 
 // Wallet address validation
 function isValidWallet(wallet: string): boolean {
@@ -40,19 +35,38 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid wallet' }, { status: 400 })
         }
 
+        // Rate limit GET by IP
+        const ip = getClientIp(request)
+        const { success: rlSuccess } = await getRatelimit.limit(`referral-get:${ip}`)
+        if (!rlSuccess) {
+            return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+        }
+
         const walletLower = wallet.toLowerCase()
         const key = `player:${walletLower}`
 
         const existing = await redis.hgetall(key)
-        let referralCode = String(existing?.referralCode || '')
 
-        // Generate code if doesn't exist
+        // Only generate referral codes for players who already exist (have played).
+        // Prevents attackers from creating arbitrary wallet entries via GET spam.
+        if (!existing || !existing.wallet) {
+            return NextResponse.json({
+                referralCode: null,
+                referralCount: 0,
+                referralPoints: 0,
+                maxReferrals: MAX_REFERRALS,
+                pointsPerReferral: REFERRAL_POINTS,
+                referralsRemaining: MAX_REFERRALS,
+                shareUrl: null
+            })
+        }
+
+        let referralCode = String(existing.referralCode || '')
+
+        // Generate code if player exists but doesn't have one yet
         if (!referralCode) {
             referralCode = generateReferralCode(walletLower)
-            await redis.hset(key, {
-                referralCode,
-                wallet: walletLower
-            })
+            await redis.hset(key, { referralCode })
             // Also store reverse mapping for lookup
             await redis.set(`referral:${referralCode}`, walletLower)
         }
@@ -149,9 +163,10 @@ export async function POST(request: NextRequest) {
         }
 
         /**
-         * Lua script: atomic referral registration across TWO player keys.
+         * Lua script: atomic referral registration across TWO player keys + leaderboard ZADD.
          * Re-checks referredBy + referralCount inside the script to prevent
          * TOCTOU races (the earlier checks are fast-fail only).
+         * KEYS[1] = referee key, KEYS[2] = referrer key, KEYS[3] = leaderboard sorted set
          */
         const REFERRAL_LUA = `
 local refereeKey = KEYS[1]
@@ -172,12 +187,17 @@ end
 redis.call('HSET', refereeKey, 'referredBy', referrerWallet)
 redis.call('HSET', referrerKey, 'referralCount', referralCount + 1)
 
+-- Recalculate referrer score and update leaderboard
+local key = referrerKey
+local walletLower = referrerWallet
+${makeRecalcScoreLua('KEYS[3]', 'walletLower')}
+
 return 'OK:' .. (referralCount + 1)
 `
 
         const result = await redis.eval(
             REFERRAL_LUA,
-            [refereeKey, referrerKey],
+            [refereeKey, referrerKey, LEADERBOARD_KEY],
             [String(referrerWallet).toLowerCase(), MAX_REFERRALS]
         ) as string
 

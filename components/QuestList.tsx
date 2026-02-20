@@ -41,8 +41,13 @@ export default function QuestList({ wallet, isSupporter, onPointsUpdate, getAuth
         if (!wallet) return
 
         try {
-            // Fetch daily login status
-            const loginRes = await fetch(`/api/quest/daily-login?wallet=${wallet}`)
+            // Parallel fetches — 3 independent requests at once instead of sequential
+            const [loginRes, refRes, profileRes] = await Promise.all([
+                fetch(`/api/quest/daily-login?wallet=${wallet}`),
+                fetch(`/api/quest/referral?wallet=${wallet}`),
+                fetch(`/api/profile?wallet=${wallet}`),
+            ])
+
             if (loginRes.ok) {
                 const data = await loginRes.json()
                 setDailyLoginStatus({
@@ -52,8 +57,6 @@ export default function QuestList({ wallet, isSupporter, onPointsUpdate, getAuth
                 })
             }
 
-            // Fetch referral data
-            const refRes = await fetch(`/api/quest/referral?wallet=${wallet}`)
             if (refRes.ok) {
                 const data = await refRes.json()
                 setReferralData({
@@ -63,8 +66,6 @@ export default function QuestList({ wallet, isSupporter, onPointsUpdate, getAuth
                 })
             }
 
-            // Fetch profile for supporter bonus status
-            const profileRes = await fetch(`/api/profile?wallet=${wallet}`)
             if (profileRes.ok) {
                 const data = await profileRes.json()
                 setSupporterBonus({

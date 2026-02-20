@@ -1,59 +1,72 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Redis } from '@upstash/redis'
-import { Ratelimit } from '@upstash/ratelimit'
-
-// Point values per level (Updated: Easy:3, Medium:5, Hard:10)
-const LEVEL_POINTS: Record<string, number> = {
-    easy: 3,
-    medium: 5,
-    hard: 10
-}
-
-// Quest point values
-const DAILY_LOGIN_POINTS = 2
-const SUPPORTER_BONUS_POINTS = 50
-const REFERRAL_POINTS = 10
-
-// Initialize Redis client
-const redis = Redis.fromEnv()
+import { redis, createRateLimiter, getClientIp, LEADERBOARD_KEY, LEADERBOARD_CACHE_KEY, POINTS } from '@/lib/redis'
 
 // Rate limiter: 10 requests per 10 seconds per IP
-const ratelimit = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(10, '10 s'),
-    analytics: true,
-})
+const ratelimit = createRateLimiter(10, '10 s')
 
 // Wallet address validation
 function isValidWallet(wallet: string): boolean {
     return /^0x[a-fA-F0-9]{40}$/.test(wallet)
 }
 
-interface PlayerStats {
-    wallet: string
-    easyWins: number
-    mediumWins: number
-    hardWins: number
-    isSupporter: boolean
-    // New fields for quest system
-    supporterBonusClaimed?: boolean
-    lastDailyLogin?: number
-    dailyLoginPoints?: number
-    referralCode?: string
-    referredBy?: string
-    referralCount?: number
-    dailyWinCount?: number
-    dailyWinDate?: string
-}
+const CACHE_TTL = 10 // 10 seconds
 
-// Cache for leaderboard (10 seconds)
-let leaderboardCache: { data: any; timestamp: number } | null = null
-const CACHE_TTL = 10000 // 10 seconds
+/**
+ * One-time migration: rebuild sorted-set leaderboard from existing player hashes.
+ * Only runs when the sorted set is empty (first deploy or after FLUSHALL).
+ */
+async function rebuildLeaderboard(): Promise<void> {
+    const lockKey = 'leaderboard:rebuilding'
+    // Acquire simple lock to avoid concurrent rebuilds
+    const acquired = await redis.set(lockKey, '1', { nx: true, ex: 60 })
+    if (!acquired) return // Another instance is rebuilding
+
+    try {
+        const keys: string[] = []
+        let cursor = '0'
+        do {
+            const result = await redis.scan(cursor, { match: 'player:*', count: 100 })
+            cursor = String(result[0])
+            keys.push(...result[1])
+        } while (cursor !== '0')
+
+        if (keys.length === 0) return
+
+        // Pipeline HMGET + compute scores in batches of 100
+        const batchSize = 100
+        for (let i = 0; i < keys.length; i += batchSize) {
+            const batch = keys.slice(i, i + batchSize)
+            const pipeline = redis.pipeline()
+            for (const key of batch) {
+                pipeline.hmget(key, 'wallet', 'easyWins', 'mediumWins', 'hardWins', 'dailyLoginPoints', 'supporterBonusClaimed', 'referralCount')
+            }
+            const results = await pipeline.exec()
+
+            const zaddPipeline = redis.pipeline()
+            for (const vals of results) {
+                const v = vals as (string | null)[]
+                if (!v || !v[0]) continue
+                const wallet = v[0]
+                const score =
+                    (Number(v[1]) || 0) * POINTS.easy +
+                    (Number(v[2]) || 0) * POINTS.medium +
+                    (Number(v[3]) || 0) * POINTS.hard +
+                    (Number(v[4]) || 0) +
+                    ((v[5] === 'true' || v[5] === '1') ? POINTS.supporterBonus : 0) +
+                    (Number(v[6]) || 0) * POINTS.referral
+                zaddPipeline.zadd(LEADERBOARD_KEY, { score, member: wallet })
+            }
+            await zaddPipeline.exec()
+        }
+    } finally {
+        await redis.del(lockKey)
+    }
+}
 
 export async function GET(request: NextRequest) {
     try {
         // Rate limiting by IP
-        const ip = request.headers.get('x-forwarded-for') || 'anonymous'
+        const ip = getClientIp(request)
         const { success } = await ratelimit.limit(ip)
 
         if (!success) {
@@ -63,9 +76,10 @@ export async function GET(request: NextRequest) {
             )
         }
 
-        // Check cache first
-        if (leaderboardCache && Date.now() - leaderboardCache.timestamp < CACHE_TTL) {
-            return NextResponse.json(leaderboardCache.data, {
+        // Check Redis cache first (shared across all serverless instances)
+        const cached = await redis.get(LEADERBOARD_CACHE_KEY)
+        if (cached) {
+            return NextResponse.json(cached, {
                 headers: {
                     'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=59',
                     'X-Cache': 'HIT'
@@ -73,91 +87,77 @@ export async function GET(request: NextRequest) {
             })
         }
 
-        // Get all player keys using SCAN instead of KEYS (more efficient)
-        const keys: string[] = []
-        let cursor = '0'
-        do {
-            const result = await redis.scan(cursor, { match: 'player:*', count: 100 })
-            cursor = String(result[0])
-            keys.push(...result[1])
-        } while (cursor !== '0')
+        // Check if sorted set exists, rebuild if empty (one-time migration)
+        const count = await redis.zcard(LEADERBOARD_KEY)
+        if (count === 0) {
+            await rebuildLeaderboard()
+        }
 
-        if (keys.length === 0) {
+        const totalPlayers = await redis.zcard(LEADERBOARD_KEY)
+
+        // Get top 100 from sorted set — O(log N + 100) instead of O(N)
+        const topWallets = await redis.zrange(LEADERBOARD_KEY, 0, 99, { rev: true, withScores: true })
+
+        if (!topWallets || topWallets.length === 0) {
             const data = { entries: [], total: 0 }
-            leaderboardCache = { data, timestamp: Date.now() }
+            await redis.set(LEADERBOARD_CACHE_KEY, JSON.stringify(data), { ex: CACHE_TTL })
             return NextResponse.json(data)
         }
 
-        // Fetch all player data using pipeline for efficiency
-        const players: PlayerStats[] = []
-
-        // Process in batches to avoid memory issues
-        const batchSize = 50
-        for (let i = 0; i < keys.length; i += batchSize) {
-            const batch = keys.slice(i, i + batchSize)
-            const pipeline = redis.pipeline()
-
-            for (const key of batch) {
-                pipeline.hgetall(key)
-            }
-
-            const results = await pipeline.exec()
-
-            for (const player of results) {
-                if (player) {
-                    players.push({
-                        wallet: String((player as any).wallet || ''),
-                        easyWins: Number((player as any).easyWins || 0),
-                        mediumWins: Number((player as any).mediumWins || 0),
-                        hardWins: Number((player as any).hardWins || 0),
-                        isSupporter: Boolean((player as any).isSupporter || false),
-                        supporterBonusClaimed: Boolean((player as any).supporterBonusClaimed || false),
-                        dailyLoginPoints: Number((player as any).dailyLoginPoints || 0),
-                        referralCount: Number((player as any).referralCount || 0)
-                    })
-                }
-            }
+        // Extract wallets and scores from zrange result
+        // topWallets is [member, score, member, score, ...]
+        const wallets: string[] = []
+        const scores: number[] = []
+        for (let i = 0; i < topWallets.length; i += 2) {
+            wallets.push(String(topWallets[i]))
+            scores.push(Number(topWallets[i + 1]))
         }
 
-        // Calculate total points for each player (game + quest points) and sort
-        const entries = players
-            .filter(p => p.wallet) // Remove invalid entries
-            .map(player => {
-                // Game points from wins
-                const gamePoints =
-                    player.easyWins * LEVEL_POINTS.easy +
-                    player.mediumWins * LEVEL_POINTS.medium +
-                    player.hardWins * LEVEL_POINTS.hard
-
-                // Quest points
-                const dailyLoginPts = player.dailyLoginPoints || 0
-                const supporterPts = player.supporterBonusClaimed ? SUPPORTER_BONUS_POINTS : 0
-                const referralPts = (player.referralCount || 0) * REFERRAL_POINTS
-
-                // Total = game + all quest points
-                const totalPoints = gamePoints + dailyLoginPts + supporterPts + referralPts
-
-                return {
-                    wallet: player.wallet,
-                    totalPoints,
-                    gamePoints,
-                    easyWins: player.easyWins,
-                    mediumWins: player.mediumWins,
-                    hardWins: player.hardWins,
-                    isSupporter: player.isSupporter
+        // Pipeline HMGET for just the top 100 wallets (not ALL players)
+        const batchSize = 50
+        const playerData: Record<string, any> = {}
+        for (let i = 0; i < wallets.length; i += batchSize) {
+            const batch = wallets.slice(i, i + batchSize)
+            const pipeline = redis.pipeline()
+            for (const w of batch) {
+                pipeline.hmget(`player:${w}`, 'easyWins', 'mediumWins', 'hardWins', 'isSupporter')
+            }
+            const results = await pipeline.exec()
+            batch.forEach((w, idx) => {
+                const v = results[idx] as (string | null)[]
+                playerData[w] = {
+                    easyWins: Number(v?.[0]) || 0,
+                    mediumWins: Number(v?.[1]) || 0,
+                    hardWins: Number(v?.[2]) || 0,
+                    isSupporter: v?.[3] === 'true' || v?.[3] === '1'
                 }
             })
-            .sort((a, b) => b.totalPoints - a.totalPoints)
-            .slice(0, 100)
-            .map((entry, idx) => ({
+        }
+
+        // Build response
+        const entries = wallets.map((w, idx) => {
+            const p = playerData[w] || {}
+            const gamePoints =
+                (p.easyWins || 0) * POINTS.easy +
+                (p.mediumWins || 0) * POINTS.medium +
+                (p.hardWins || 0) * POINTS.hard
+
+            return {
                 rank: idx + 1,
-                ...entry
-            }))
+                wallet: w,
+                totalPoints: scores[idx],
+                gamePoints,
+                easyWins: p.easyWins || 0,
+                mediumWins: p.mediumWins || 0,
+                hardWins: p.hardWins || 0,
+                isSupporter: p.isSupporter || false
+            }
+        })
 
-        const data = { entries, total: players.length }
+        const data = { entries, total: totalPlayers }
 
-        // Update cache
-        leaderboardCache = { data, timestamp: Date.now() }
+        // Cache in Redis (shared across all serverless instances)
+        await redis.set(LEADERBOARD_CACHE_KEY, JSON.stringify(data), { ex: CACHE_TTL })
 
         return NextResponse.json(data, {
             headers: {
