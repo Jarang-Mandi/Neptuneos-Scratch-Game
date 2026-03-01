@@ -185,7 +185,7 @@ export default function Home() {
                     <>
                         {/* Wallet Connection Required Notice */}
                         {!isConnected && (
-                            <div style={{
+                            <div className="info-box" style={{
                                 textAlign: 'center',
                                 padding: '30px 20px',
                                 marginBottom: '20px',
@@ -205,7 +205,7 @@ export default function Home() {
 
                         {/* Auth Status */}
                         {isConnected && !isAuthenticated && (
-                            <div style={{
+                            <div className="info-box" style={{
                                 textAlign: 'center',
                                 padding: '15px',
                                 marginBottom: '15px',

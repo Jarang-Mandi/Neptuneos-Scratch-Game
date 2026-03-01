@@ -72,7 +72,7 @@ export default function Navbar({ onMusicToggle, isMusicPlaying = false }: Navbar
 
                 {/* Dropdown Menu */}
                 {menuOpen && (
-                    <div style={{
+                    <div className="dropdown-menu" style={{
                         position: 'absolute',
                         top: '60px',
                         right: '15px',

@@ -66,13 +66,14 @@ body.light-mode .glass-panel {
 body {
   margin: 0;
   padding-top: 70px;
+  padding-bottom: 90px;
   background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
   color: #f0f0f0;
   font-family: 'Jersey 20', sans-serif;
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
 }
 
 .container {
@@ -434,6 +435,37 @@ body.light-mode select {
     box-shadow: 0 4px rgba(0, 86, 179, 0.3);
 }
 
+/* Ensure button text stays white inside glass-panel in light mode */
+body.light-mode .glass-panel button,
+body.light-mode .glass-panel button span {
+    color: #fff !important;
+}
+
+/* Popup close button in light mode */
+body.light-mode .popup-close {
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #333 !important;
+    font-size: 20px;
+}
+
+/* Unify all button box-shadows in light mode */
+body.light-mode button {
+    box-shadow: 0 4px rgba(0, 86, 179, 0.3) !important;
+}
+
+body.light-mode .bottom-nav button {
+    box-shadow: none !important;
+}
+
+body.light-mode .bottom-nav button[style*="linear-gradient"] {
+    box-shadow: 0 4px rgba(0, 86, 179, 0.3) !important;
+}
+
+body.light-mode .popup-close {
+    box-shadow: none !important;
+}
+
 body.light-mode .popup-content {
   background: rgba(255, 255, 255, 0.95);
   color: #1a202c;
@@ -464,7 +496,8 @@ body.light-mode .leaderboard-content {
 }
 
 body.light-mode .navbar {
-    background: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
@@ -477,4 +510,92 @@ body.light-mode .leaderboard-table th,
 body.light-mode .leaderboard-table td {
     color: #4a5568;
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Light mode: bottom nav */
+body.light-mode .bottom-nav {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+body.light-mode .bottom-nav button {
+    color: #4a5568;
+}
+
+/* Light mode: dropdown menu */
+body.light-mode .dropdown-menu {
+    background: rgba(255, 255, 255, 0.98);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+/* Light mode: text colors for inline styles override */
+body.light-mode .glass-panel h3,
+body.light-mode .glass-panel h2 {
+    color: #0070f3 !important;
+}
+
+body.light-mode .glass-panel span,
+body.light-mode .glass-panel p,
+body.light-mode .glass-panel div {
+    color: #333;
+}
+
+body.light-mode .glass-panel .points-value {
+    color: #0070f3 !important;
+}
+
+body.light-mode .glass-panel .points-label {
+    color: #666 !important;
+}
+
+body.light-mode .glass-panel .stat-value-easy {
+    color: #16a34a !important;
+}
+
+body.light-mode .glass-panel .stat-value-medium {
+    color: #ca8a04 !important;
+}
+
+body.light-mode .glass-panel .stat-value-hard {
+    color: #dc2626 !important;
+}
+
+/* Light mode: quest items */
+body.light-mode .quest-item {
+    background: rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Light mode: message banner */
+body.light-mode .quest-message {
+    background: rgba(0, 112, 243, 0.08) !important;
+    color: #333 !important;
+}
+
+/* Light mode: referral input */
+body.light-mode .referral-input {
+    background: #f7fafc !important;
+    border: 1px solid #cbd5e0 !important;
+    color: #333 !important;
+}
+
+body.light-mode .referral-input::placeholder {
+    color: #a0aec0 !important;
+}
+
+/* Light mode: info boxes */
+body.light-mode .info-box {
+    background: rgba(0, 112, 243, 0.06) !important;
+    border-color: rgba(0, 112, 243, 0.2) !important;
+}
+
+body.light-mode .info-box p,
+body.light-mode .info-box span {
+    color: #4a5568 !important;
+}
+
+/* Light mode: wallet address */
+body.light-mode .wallet-addr {
+    color: #718096 !important;
 }

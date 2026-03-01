@@ -30,6 +30,8 @@ export default function QuestList({ wallet, isSupporter, onPointsUpdate, getAuth
 
     const [isLoading, setIsLoading] = useState(false)
     const [message, setMessage] = useState('')
+    const [referralInput, setReferralInput] = useState('')
+    const [isApplyingReferral, setIsApplyingReferral] = useState(false)
 
     useEffect(() => {
         if (wallet) {
@@ -147,6 +149,35 @@ export default function QuestList({ wallet, isSupporter, onPointsUpdate, getAuth
         window.open(warpcastUrl, '_blank')
     }
 
+    const applyReferralCode = async () => {
+        if (!wallet || !referralInput.trim() || isApplyingReferral) return
+        setIsApplyingReferral(true)
+        setMessage('')
+
+        try {
+            const code = referralInput.trim().toUpperCase()
+            const res = await fetch('/api/quest/referral', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders?.() },
+                body: JSON.stringify({ wallet, referralCode: code })
+            })
+            const data = await res.json()
+
+            if (data.success) {
+                setMessage(`✅ ${sanitizeDisplayText(data.message, 80)}`)
+                setReferralInput('')
+                fetchQuestData()
+                onPointsUpdate?.()
+            } else {
+                setMessage(`❌ ${sanitizeDisplayText(data.error, 80)}`)
+            }
+        } catch (error) {
+            setMessage('❌ Failed to apply referral code')
+        } finally {
+            setIsApplyingReferral(false)
+        }
+    }
+
     const formatCooldown = (ms: number): string => {
         const hours = Math.floor(ms / (1000 * 60 * 60))
         const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60))
@@ -181,7 +212,7 @@ export default function QuestList({ wallet, isSupporter, onPointsUpdate, getAuth
             </h3>
 
             {message && (
-                <p style={{
+                <p className="quest-message" style={{
                     background: 'rgba(88, 216, 255, 0.1)',
                     padding: '8px 12px',
                     borderRadius: '8px',
@@ -194,7 +225,7 @@ export default function QuestList({ wallet, isSupporter, onPointsUpdate, getAuth
             )}
 
             {/* Daily Login */}
-            <div style={{
+            <div className="quest-item" style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
@@ -234,7 +265,7 @@ export default function QuestList({ wallet, isSupporter, onPointsUpdate, getAuth
             </div>
 
             {/* Supporter Bonus */}
-            <div style={{
+            <div className="quest-item" style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
@@ -277,7 +308,7 @@ export default function QuestList({ wallet, isSupporter, onPointsUpdate, getAuth
             </div>
 
             {/* Referral */}
-            <div style={{
+            <div className="quest-item" style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
@@ -322,6 +353,59 @@ export default function QuestList({ wallet, isSupporter, onPointsUpdate, getAuth
                         }}
                     >
                         Share
+                    </button>
+                </div>
+            </div>
+
+            {/* Enter Friend's Referral Code */}
+            <div className="quest-item" style={{
+                padding: '12px',
+                background: 'rgba(255,255,255,0.05)',
+                borderRadius: '8px',
+                marginTop: '8px',
+            }}>
+                <p style={{ fontSize: '13px', marginBottom: '8px', color: '#aaa' }}>
+                    🎟️ Have a friend&apos;s code? Enter it below:
+                </p>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                        className="referral-input"
+                        type="text"
+                        placeholder="Enter referral code"
+                        value={referralInput}
+                        onChange={(e) => setReferralInput(e.target.value.toUpperCase())}
+                        maxLength={20}
+                        style={{
+                            flex: 1,
+                            padding: '8px 12px',
+                            fontSize: '13px',
+                            background: 'rgba(255,255,255,0.08)',
+                            border: '1px solid rgba(88, 216, 255, 0.3)',
+                            borderRadius: '8px',
+                            color: '#fff',
+                            outline: 'none',
+                            fontFamily: 'monospace',
+                            letterSpacing: '1px',
+                        }}
+                    />
+                    <button
+                        onClick={applyReferralCode}
+                        disabled={!referralInput.trim() || isApplyingReferral}
+                        style={{
+                            padding: '8px 16px',
+                            fontSize: '12px',
+                            background: referralInput.trim()
+                                ? 'linear-gradient(145deg, #00c6ff, #0072ff)'
+                                : 'rgba(255,255,255,0.1)',
+                            border: 'none',
+                            borderRadius: '8px',
+                            color: '#fff',
+                            cursor: referralInput.trim() ? 'pointer' : 'default',
+                            opacity: referralInput.trim() ? 1 : 0.5,
+                            fontWeight: 'bold',
+                        }}
+                    >
+                        {isApplyingReferral ? '...' : 'Apply'}
                     </button>
                 </div>
             </div>

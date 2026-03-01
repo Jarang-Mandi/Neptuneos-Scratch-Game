@@ -163,7 +163,7 @@ export default function ProfileTab({ wallet, fid, username, pfpUrl }: ProfileTab
                     </p>
                 )}
 
-                <p style={{
+                <p className="wallet-addr" style={{
                     color: '#666',
                     fontSize: '12px',
                     fontFamily: 'monospace',
@@ -217,20 +217,20 @@ export default function ProfileTab({ wallet, fid, username, pfpUrl }: ProfileTab
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                        <span style={{ color: '#aaa' }}>🎮 Game Wins</span>
-                        <span style={{ color: '#fff' }}>{profile?.points.game || 0}</span>
+                        <span className="points-label" style={{ color: '#aaa' }}>🎮 Game Wins</span>
+                        <span className="points-value" style={{ color: '#fff' }}>{profile?.points.game || 0}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                        <span style={{ color: '#aaa' }}>☀️ Daily Login</span>
-                        <span style={{ color: '#fff' }}>{profile?.points.dailyLogin || 0}</span>
+                        <span className="points-label" style={{ color: '#aaa' }}>☀️ Daily Login</span>
+                        <span className="points-value" style={{ color: '#fff' }}>{profile?.points.dailyLogin || 0}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                        <span style={{ color: '#aaa' }}>⭐ Supporter</span>
-                        <span style={{ color: '#fff' }}>{profile?.points.supporter || 0}</span>
+                        <span className="points-label" style={{ color: '#aaa' }}>⭐ Supporter</span>
+                        <span className="points-value" style={{ color: '#fff' }}>{profile?.points.supporter || 0}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                        <span style={{ color: '#aaa' }}>👥 Referral</span>
-                        <span style={{ color: '#fff' }}>{profile?.points.referral || 0}</span>
+                        <span className="points-label" style={{ color: '#aaa' }}>👥 Referral</span>
+                        <span className="points-value" style={{ color: '#fff' }}>{profile?.points.referral || 0}</span>
                     </div>
 
                     <div style={{
@@ -242,8 +242,8 @@ export default function ProfileTab({ wallet, fid, username, pfpUrl }: ProfileTab
                         fontSize: '16px',
                         fontWeight: 'bold'
                     }}>
-                        <span style={{ color: '#58d8ff' }}>Total</span>
-                        <span style={{ color: '#58d8ff' }}>{profile?.points.total || 0}</span>
+                        <span className="points-value" style={{ color: '#58d8ff' }}>Total</span>
+                        <span className="points-value" style={{ color: '#58d8ff' }}>{profile?.points.total || 0}</span>
                     </div>
                 </div>
             </div>
@@ -265,22 +265,22 @@ export default function ProfileTab({ wallet, fid, username, pfpUrl }: ProfileTab
                     textAlign: 'center'
                 }}>
                     <div>
-                        <p style={{ fontSize: '20px', fontWeight: 'bold', color: '#4ade80' }}>
+                        <p className="stat-value-easy" style={{ fontSize: '20px', fontWeight: 'bold', color: '#4ade80' }}>
                             {profile?.stats.easyWins || 0}
                         </p>
-                        <p style={{ fontSize: '11px', color: '#888' }}>Easy</p>
+                        <p className="points-label" style={{ fontSize: '11px', color: '#888' }}>Easy</p>
                     </div>
                     <div>
-                        <p style={{ fontSize: '20px', fontWeight: 'bold', color: '#facc15' }}>
+                        <p className="stat-value-medium" style={{ fontSize: '20px', fontWeight: 'bold', color: '#facc15' }}>
                             {profile?.stats.mediumWins || 0}
                         </p>
-                        <p style={{ fontSize: '11px', color: '#888' }}>Medium</p>
+                        <p className="points-label" style={{ fontSize: '11px', color: '#888' }}>Medium</p>
                     </div>
                     <div>
-                        <p style={{ fontSize: '20px', fontWeight: 'bold', color: '#f87171' }}>
+                        <p className="stat-value-hard" style={{ fontSize: '20px', fontWeight: 'bold', color: '#f87171' }}>
                             {profile?.stats.hardWins || 0}
                         </p>
-                        <p style={{ fontSize: '11px', color: '#888' }}>Hard</p>
+                        <p className="points-label" style={{ fontSize: '11px', color: '#888' }}>Hard</p>
                     </div>
                 </div>
 
