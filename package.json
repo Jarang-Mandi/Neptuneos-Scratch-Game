@@ -15,10 +15,11 @@
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.36.1",
     "next": "^15.1.0",
+    "ox": "^0.13.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "viem": "^2.21.0",
-    "wagmi": "^2.14.11"
+    "viem": "^2.45.0",
+    "wagmi": "^2.19.5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

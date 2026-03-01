@@ -2,12 +2,19 @@ import { base } from 'wagmi/chains'
 import { http, createConfig } from 'wagmi'
 import { injected } from 'wagmi/connectors'
 import { farcasterMiniApp } from '@farcaster/miniapp-wagmi-connector'
+import { Attribution } from 'ox/erc8021'
+
+// Builder Code — registered at base.dev
+const DATA_SUFFIX = Attribution.toDataSuffix({
+    codes: ['bc_fmbcj51h'],
+})
 
 export const config = createConfig({
     chains: [base],
     transports: {
         [base.id]: http(),
     },
+    dataSuffix: DATA_SUFFIX,
     connectors: [
         farcasterMiniApp(), // Priority: Farcaster auto-connect
         injected({ target: 'metaMask' }), // MetaMask
