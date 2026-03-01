@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
                     maxReferrals: 50
                 },
                 isSupporter: false,
+                isGTD: false,
                 dailyWinsRemaining: 10
             })
         }
@@ -67,6 +68,7 @@ export async function GET(request: NextRequest) {
 
         const dailyLoginPoints = Number(data.dailyLoginPoints || 0)
         const isSupporter = Boolean(data.isSupporter)
+        const isGTD = Boolean(data.isGTD)
         const supporterBonusClaimed = Boolean(data.supporterBonusClaimed)
         const supporterPoints = supporterBonusClaimed ? POINTS.supporterBonus : 0
 
@@ -103,6 +105,7 @@ export async function GET(request: NextRequest) {
                 referredBy: data.referredBy || null
             },
             isSupporter,
+            isGTD,
             supporterBonusClaimed,
             canClaimSupporterBonus: isSupporter && !supporterBonusClaimed,
             dailyWinsRemaining: 10 - dailyWinCount,

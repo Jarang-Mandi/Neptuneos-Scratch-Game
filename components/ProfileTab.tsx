@@ -29,6 +29,7 @@ interface ProfileData {
         count: number
     }
     isSupporter: boolean
+    isGTD: boolean
     dailyWinsRemaining: number
 }
 
@@ -60,6 +61,7 @@ export default function ProfileTab({ wallet, fid, username, pfpUrl }: ProfileTab
                     stats: data.stats,
                     referral: data.referral,
                     isSupporter: data.isSupporter,
+                    isGTD: data.isGTD,
                     dailyWinsRemaining: data.dailyWinsRemaining
                 })
             }
@@ -182,6 +184,22 @@ export default function ProfileTab({ wallet, fid, username, pfpUrl }: ProfileTab
                         marginTop: '10px'
                     }}>
                         ⭐ Supporter
+                    </span>
+                )}
+
+                {profile?.isGTD && (
+                    <span style={{
+                        display: 'inline-block',
+                        background: 'linear-gradient(145deg, #00d2ff, #3a7bd5)',
+                        color: '#fff',
+                        padding: '4px 12px',
+                        borderRadius: '20px',
+                        fontSize: '11px',
+                        fontWeight: 'bold',
+                        marginTop: '10px',
+                        marginLeft: profile?.isSupporter ? '6px' : '0'
+                    }}>
+                        🎫 GTD WL
                     </span>
                 )}
             </div>

@@ -173,7 +173,7 @@ export async function GET(request: NextRequest) {
             const batch = wallets.slice(i, i + batchSize)
             const pipeline = redis.pipeline()
             for (const w of batch) {
-                pipeline.hmget(`player:${w}`, 'easyWins', 'mediumWins', 'hardWins', 'isSupporter')
+                pipeline.hmget(`player:${w}`, 'easyWins', 'mediumWins', 'hardWins', 'isSupporter', 'isGTD')
             }
             const results = await pipeline.exec()
             // Upstash SDK hmget returns { field: value } object (NOT array)
@@ -183,7 +183,8 @@ export async function GET(request: NextRequest) {
                     easyWins: Number(v?.easyWins) || 0,
                     mediumWins: Number(v?.mediumWins) || 0,
                     hardWins: Number(v?.hardWins) || 0,
-                    isSupporter: v?.isSupporter === true || v?.isSupporter === 'true' || v?.isSupporter === '1'
+                    isSupporter: v?.isSupporter === true || v?.isSupporter === 'true' || v?.isSupporter === '1',
+                    isGTD: v?.isGTD === true || v?.isGTD === 'true' || v?.isGTD === '1'
                 }
             })
         }
@@ -204,7 +205,8 @@ export async function GET(request: NextRequest) {
                 easyWins: p.easyWins || 0,
                 mediumWins: p.mediumWins || 0,
                 hardWins: p.hardWins || 0,
-                isSupporter: p.isSupporter || false
+                isSupporter: p.isSupporter || false,
+                isGTD: p.isGTD || false
             }
         })
 

@@ -17,6 +17,7 @@ interface LeaderboardEntry {
     mediumWins: number
     hardWins: number
     isSupporter: boolean
+    isGTD: boolean
 }
 
 export default function Leaderboard() {
@@ -106,6 +107,7 @@ export default function Leaderboard() {
                                     <td>
                                         {entry.wallet.slice(0, 6)}...{entry.wallet.slice(-4)}
                                         {entry.isSupporter && <span className="supporter-badge">⭐</span>}
+                                        {entry.isGTD && <span className="gtd-badge">GTD</span>}
                                     </td>
                                     <td style={{ fontWeight: 'bold', color: '#58d8ff' }}>
                                         {entry.totalPoints}

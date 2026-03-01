@@ -61,7 +61,8 @@ export async function GET(request: NextRequest) {
                         easyWins,
                         mediumWins,
                         hardWins,
-                        isSupporter: Boolean((player as any).isSupporter)
+                        isSupporter: Boolean((player as any).isSupporter),
+                        isGTD: Boolean((player as any).isGTD)
                     })
                 }
             }

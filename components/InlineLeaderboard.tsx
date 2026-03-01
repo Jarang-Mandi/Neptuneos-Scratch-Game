@@ -10,6 +10,7 @@ interface LeaderboardEntry {
     mediumWins: number
     hardWins: number
     isSupporter: boolean
+    isGTD: boolean
 }
 
 interface InlineLeaderboardProps {
@@ -106,6 +107,17 @@ export default function InlineLeaderboard({ refreshTrigger = 0 }: InlineLeaderbo
                                                 padding: '2px 6px',
                                                 borderRadius: '4px',
                                             }}>⭐</span>
+                                        )}
+                                        {entry.isGTD && (
+                                            <span style={{
+                                                marginLeft: '4px',
+                                                fontSize: '9px',
+                                                background: 'linear-gradient(135deg, #00d2ff, #3a7bd5)',
+                                                color: '#fff',
+                                                padding: '2px 6px',
+                                                borderRadius: '4px',
+                                                fontWeight: 'bold',
+                                            }}>GTD</span>
                                         )}
                                     </td>
                                     <td style={{
