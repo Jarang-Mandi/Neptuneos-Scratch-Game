@@ -32,6 +32,7 @@ export default function QuestList({ wallet, isSupporter, onPointsUpdate, getAuth
     const [message, setMessage] = useState('')
     const [referralInput, setReferralInput] = useState('')
     const [isApplyingReferral, setIsApplyingReferral] = useState(false)
+    const [referredBy, setReferredBy] = useState<string | null>(null)
 
     useEffect(() => {
         if (wallet) {
@@ -74,6 +75,7 @@ export default function QuestList({ wallet, isSupporter, onPointsUpdate, getAuth
                     claimed: data.supporterBonusClaimed,
                     canClaim: data.canClaimSupporterBonus
                 })
+                setReferredBy(data.referral?.referredBy || null)
             }
         } catch (error) {
             console.error('Failed to fetch quest data:', error)
@@ -357,57 +359,90 @@ export default function QuestList({ wallet, isSupporter, onPointsUpdate, getAuth
                 </div>
             </div>
 
-            {/* Enter Friend's Referral Code */}
+            {/* Enter Friend's Referral Code / Invited By */}
             <div className="quest-item" style={{
                 padding: '12px',
                 background: 'rgba(255,255,255,0.05)',
                 borderRadius: '8px',
                 marginTop: '8px',
             }}>
-                <p style={{ fontSize: '13px', marginBottom: '8px', color: '#aaa' }}>
-                    🎟️ Have a friend&apos;s code? Enter it below:
-                </p>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    <input
-                        className="referral-input"
-                        type="text"
-                        placeholder="Enter referral code"
-                        value={referralInput}
-                        onChange={(e) => setReferralInput(e.target.value.toUpperCase())}
-                        maxLength={20}
-                        style={{
-                            flex: 1,
-                            padding: '8px 12px',
-                            fontSize: '13px',
-                            background: 'rgba(255,255,255,0.08)',
-                            border: '1px solid rgba(88, 216, 255, 0.3)',
-                            borderRadius: '8px',
-                            color: '#fff',
-                            outline: 'none',
-                            fontFamily: 'monospace',
-                            letterSpacing: '1px',
-                        }}
-                    />
-                    <button
-                        onClick={applyReferralCode}
-                        disabled={!referralInput.trim() || isApplyingReferral}
-                        style={{
-                            padding: '8px 16px',
-                            fontSize: '12px',
-                            background: referralInput.trim()
-                                ? 'linear-gradient(145deg, #00c6ff, #0072ff)'
-                                : 'rgba(255,255,255,0.1)',
-                            border: 'none',
-                            borderRadius: '8px',
-                            color: '#fff',
-                            cursor: referralInput.trim() ? 'pointer' : 'default',
-                            opacity: referralInput.trim() ? 1 : 0.5,
-                            fontWeight: 'bold',
-                        }}
-                    >
-                        {isApplyingReferral ? '...' : 'Apply'}
-                    </button>
-                </div>
+                {referredBy ? (
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                    }}>
+                        <span style={{ fontSize: '14px' }}>🤝</span>
+                        <div>
+                            <span style={{ fontSize: '12px', color: '#aaa' }}>Invited by</span>
+                            <p style={{
+                                fontSize: '13px',
+                                color: '#4ade80',
+                                fontFamily: 'monospace',
+                                margin: '2px 0 0 0',
+                                letterSpacing: '0.5px',
+                            }}>
+                                {referredBy.slice(0, 6)}...{referredBy.slice(-4)}
+                            </p>
+                        </div>
+                        <span style={{
+                            marginLeft: 'auto',
+                            fontSize: '11px',
+                            color: '#4ade80',
+                            background: 'rgba(74, 222, 128, 0.1)',
+                            padding: '4px 10px',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(74, 222, 128, 0.3)',
+                        }}>✅ Applied</span>
+                    </div>
+                ) : (
+                    <>
+                        <p style={{ fontSize: '13px', marginBottom: '8px', color: '#aaa' }}>
+                            🎟️ Have a friend&apos;s code? Enter it below:
+                        </p>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <input
+                                className="referral-input"
+                                type="text"
+                                placeholder="Enter referral code"
+                                value={referralInput}
+                                onChange={(e) => setReferralInput(e.target.value.toUpperCase())}
+                                maxLength={20}
+                                style={{
+                                    flex: 1,
+                                    padding: '8px 12px',
+                                    fontSize: '13px',
+                                    background: 'rgba(255,255,255,0.08)',
+                                    border: '1px solid rgba(88, 216, 255, 0.3)',
+                                    borderRadius: '8px',
+                                    color: '#fff',
+                                    outline: 'none',
+                                    fontFamily: 'monospace',
+                                    letterSpacing: '1px',
+                                }}
+                            />
+                            <button
+                                onClick={applyReferralCode}
+                                disabled={!referralInput.trim() || isApplyingReferral}
+                                style={{
+                                    padding: '8px 16px',
+                                    fontSize: '12px',
+                                    background: referralInput.trim()
+                                        ? 'linear-gradient(145deg, #00c6ff, #0072ff)'
+                                        : 'rgba(255,255,255,0.1)',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    color: '#fff',
+                                    cursor: referralInput.trim() ? 'pointer' : 'default',
+                                    opacity: referralInput.trim() ? 1 : 0.5,
+                                    fontWeight: 'bold',
+                                }}
+                            >
+                                {isApplyingReferral ? '...' : 'Apply'}
+                            </button>
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     )
